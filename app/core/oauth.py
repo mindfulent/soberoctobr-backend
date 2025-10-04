@@ -24,6 +24,9 @@ async def exchange_code_for_token(code: str, redirect_uri: str) -> Dict[str, str
     Raises:
         HTTPException: If token exchange fails
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     async with httpx.AsyncClient() as client:
         response = await client.post(
             GOOGLE_TOKEN_URL,
@@ -37,9 +40,13 @@ async def exchange_code_for_token(code: str, redirect_uri: str) -> Dict[str, str
         )
 
         if response.status_code != 200:
+            # Log the actual error from Google for debugging
+            error_detail = response.text
+            logger.error(f"Google token exchange failed. Status: {response.status_code}, Response: {error_detail}")
+            logger.error(f"Redirect URI used: {redirect_uri}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to exchange authorization code for token",
+                detail=f"Failed to exchange authorization code for token: {error_detail}",
             )
 
         return response.json()
@@ -58,6 +65,9 @@ async def get_google_user_info(access_token: str) -> Optional[Dict[str, str]]:
     Raises:
         HTTPException: If user info request fails
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     async with httpx.AsyncClient() as client:
         response = await client.get(
             GOOGLE_USERINFO_URL,
@@ -65,9 +75,12 @@ async def get_google_user_info(access_token: str) -> Optional[Dict[str, str]]:
         )
 
         if response.status_code != 200:
+            # Log the actual error from Google for debugging
+            error_detail = response.text
+            logger.error(f"Google user info fetch failed. Status: {response.status_code}, Response: {error_detail}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to get user info from Google",
+                detail=f"Failed to get user info from Google: {error_detail}",
             )
 
         return response.json()

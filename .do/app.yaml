@@ -38,10 +38,13 @@ services:
         type: SECRET
       - key: API_BASE_URL
         scope: RUN_TIME
+        value: "https://soberoctobr-backend-mrm3o.ondigitalocean.app"
       - key: FRONTEND_URL
         scope: RUN_TIME
+        value: "https://soberoctobr.com"
       - key: CORS_ORIGINS
         scope: RUN_TIME
+        value: '["https://soberoctobr.com","https://www.soberoctobr.com"]'
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         scope: RUN_TIME
         value: "10080"

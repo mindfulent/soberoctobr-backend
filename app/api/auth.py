@@ -177,7 +177,15 @@ async def google_callback(
         
     except HTTPException as e:
         # Log the error and redirect to frontend with error
-        print(f"HTTPException during Google OAuth callback: {str(e)}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"HTTPException during Google OAuth callback: {str(e)}")
+        logger.error(f"HTTPException status code: {e.status_code}")
+        logger.error(f"HTTPException detail: {e.detail}")
+        logger.error(f"State parameter: {state}")
+        logger.error(f"API_BASE_URL: {settings.API_BASE_URL}")
+        logger.error(f"FRONTEND_URL: {settings.FRONTEND_URL}")
+        
         # Use state if it's a safe URL, otherwise use configured FRONTEND_URL
         allowed_prefixes = ["http://localhost:", "https://localhost:", "http://127.0.0.1:", 
                            "https://127.0.0.1:", "https://soberoctobr.com", "https://www.soberoctobr.com"]
@@ -186,9 +194,16 @@ async def google_callback(
         return RedirectResponse(url=error_url)
     except Exception as e:
         # Log the error and redirect with error message
-        print(f"Error during Google OAuth callback: {str(e)}")
+        import logging
         import traceback
-        traceback.print_exc()
+        logger = logging.getLogger(__name__)
+        logger.error(f"Exception during Google OAuth callback: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"State parameter: {state}")
+        logger.error(f"API_BASE_URL: {settings.API_BASE_URL}")
+        logger.error(f"FRONTEND_URL: {settings.FRONTEND_URL}")
+        
         # Use state if it's a safe URL, otherwise use configured FRONTEND_URL
         allowed_prefixes = ["http://localhost:", "https://localhost:", "http://127.0.0.1:", 
                            "https://127.0.0.1:", "https://soberoctobr.com", "https://www.soberoctobr.com"]

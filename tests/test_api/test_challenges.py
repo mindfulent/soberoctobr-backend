@@ -89,10 +89,10 @@ class TestCreateChallenge:
         data = response.json()
         assert "id" in data
         assert data["status"] == ChallengeStatus.ACTIVE.value
-        assert datetime.fromisoformat(data["start_date"]).date() == start_date.date()
+        assert datetime.fromisoformat(data["startDate"]).date() == start_date.date()
 
         # Verify end date is 30 days after start
-        end_date = datetime.fromisoformat(data["end_date"])
+        end_date = datetime.fromisoformat(data["endDate"])
         expected_end = start_date + timedelta(days=30)
         assert end_date.date() == expected_end.date()
 
@@ -341,14 +341,14 @@ class TestGetChallengeProgress:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["challenge_id"] == test_challenge.id
-        assert data["total_days"] > 0  # Should be around 30-31 days
-        assert data["total_habits_completed"] > 0
-        assert data["overall_completion_percentage"] > 0
-        assert data["current_streak"] >= 0
-        assert data["longest_streak"] >= 0
-        assert len(data["habit_progress"]) == 2
-        assert isinstance(data["last_7_days"], list)
+        assert data["challengeId"] == test_challenge.id
+        assert data["totalDays"] > 0  # Should be around 30-31 days
+        assert data["totalHabitsCompleted"] > 0
+        assert data["overallCompletionPercentage"] > 0
+        assert data["currentStreak"] >= 0
+        assert data["longestStreak"] >= 0
+        assert len(data["habitProgress"]) == 2
+        assert isinstance(data["last7Days"], list)
 
     def test_get_progress_no_habits(
         self, client, test_challenge: Challenge, auth_headers: dict
@@ -360,17 +360,17 @@ class TestGetChallengeProgress:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["challenge_id"] == test_challenge.id
-        assert data["current_day"] == 0
-        assert data["total_days"] == 30
-        assert data["days_elapsed"] == 0
-        assert data["total_habits_completed"] == 0
-        assert data["total_possible_habits"] == 0
-        assert data["overall_completion_percentage"] == 0
-        assert data["current_streak"] == 0
-        assert data["longest_streak"] == 0
-        assert data["last_7_days"] == []
-        assert data["habit_progress"] == []
+        assert data["challengeId"] == test_challenge.id
+        assert data["currentDay"] == 0
+        assert data["totalDays"] == 30
+        assert data["daysElapsed"] == 0
+        assert data["totalHabitsCompleted"] == 0
+        assert data["totalPossibleHabits"] == 0
+        assert data["overallCompletionPercentage"] == 0
+        assert data["currentStreak"] == 0
+        assert data["longestStreak"] == 0
+        assert data["last7Days"] == []
+        assert data["habitProgress"] == []
 
     def test_get_progress_challenge_not_found(self, client, auth_headers: dict):
         """Test getting progress for non-existent challenge."""
@@ -452,9 +452,9 @@ class TestGetChallengeProgress:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         # Current streak should be 3 (last 3 perfect days)
-        assert data["current_streak"] == 3
+        assert data["currentStreak"] == 3
         # Longest streak should be at least 3
-        assert data["longest_streak"] >= 3
+        assert data["longestStreak"] >= 3
 
     def test_get_progress_last_7_days(
         self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
@@ -492,9 +492,9 @@ class TestGetChallengeProgress:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         # Should have entries for the days (may be less than 7 if challenge started recently)
-        assert len(data["last_7_days"]) >= 0
+        assert len(data["last7Days"]) >= 0
         # Each day entry should have required fields
-        for day in data["last_7_days"]:
+        for day in data["last7Days"]:
             assert "date" in day
             assert "completed_count" in day
             assert "total_count" in day
@@ -548,7 +548,7 @@ class TestGetChallengeProgress:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        habit_progress = data["habit_progress"]
+        habit_progress = data["habitProgress"]
 
         assert len(habit_progress) == 2
 
@@ -594,8 +594,8 @@ class TestGetChallengeProgress:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         # Only active habit should be in progress
-        assert len(data["habit_progress"]) == 1
-        assert data["habit_progress"][0]["habit_id"] == "habit-1"
+        assert len(data["habitProgress"]) == 1
+        assert data["habitProgress"][0]["habit_id"] == "habit-1"
 
 
 class TestNormalizeDateFunction:
@@ -671,7 +671,7 @@ class TestNormalizeDateFunction:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["challenge_id"] == test_challenge.id
+        assert data["challengeId"] == test_challenge.id
 
     def test_challenge_started_recently(
         self, client, test_user: User, auth_headers: dict, db_session: Session
@@ -711,8 +711,8 @@ class TestNormalizeDateFunction:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         # last_7_days should only include dates from start_date onwards
-        assert isinstance(data["last_7_days"], list)
-        for day in data["last_7_days"]:
+        assert isinstance(data["last7Days"], list)
+        for day in data["last7Days"]:
             day_date = datetime.fromisoformat(day["date"])
             assert day_date >= start_date
 
@@ -797,4 +797,4 @@ class TestNormalizeDateFunction:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["challenge_id"] == challenge.id
+        assert data["challengeId"] == challenge.id

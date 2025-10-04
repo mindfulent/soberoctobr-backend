@@ -114,8 +114,8 @@ class TestCreateHabit:
         data = response.json()
         assert data["name"] == "Read for 30 minutes"
         assert data["type"] == HabitType.BINARY.value
-        assert data["preferred_time"] == "evening"
-        assert data["is_active"] is True
+        assert data["preferredTime"] == "evening"
+        assert data["isActive"] is True
 
     def test_create_counted_habit_success(
         self, client, test_challenge: Challenge, auth_headers: dict
@@ -136,7 +136,7 @@ class TestCreateHabit:
         data = response.json()
         assert data["name"] == "Drink water"
         assert data["type"] == HabitType.COUNTED.value
-        assert data["target_count"] == 8
+        assert data["targetCount"] == 8
 
     def test_create_habit_max_limit(
         self,
@@ -268,7 +268,7 @@ class TestUpdateHabit:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["type"] == HabitType.COUNTED.value
-        assert data["target_count"] == 5
+        assert data["targetCount"] == 5
 
     def test_update_habit_order(
         self, client, test_binary_habit: Habit, auth_headers: dict
@@ -296,7 +296,7 @@ class TestUpdateHabit:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["is_active"] is False
+        assert data["isActive"] is False
 
     def test_update_habit_preferred_time(
         self, client, test_binary_habit: Habit, auth_headers: dict
@@ -310,7 +310,7 @@ class TestUpdateHabit:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["preferred_time"] == "afternoon"
+        assert data["preferredTime"] == "afternoon"
 
     def test_update_habit_not_found(self, client, auth_headers: dict):
         """Test updating non-existent habit."""
@@ -400,7 +400,7 @@ class TestBulkCreateHabits:
         assert data[0]["name"] == "Meditate"
         assert data[0]["type"] == HabitType.BINARY.value
         assert data[1]["name"] == "Pushups"
-        assert data[1]["target_count"] == 20
+        assert data[1]["targetCount"] == 20
         assert data[2]["name"] == "Journal"
 
     def test_bulk_create_with_template_ids(
@@ -433,8 +433,8 @@ class TestBulkCreateHabits:
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert len(data) == 2
-        assert data[0]["template_id"] == "vitamin_d"
-        assert data[1]["template_id"] == "meditate"
+        assert data[0]["templateId"] == "vitamin_d"
+        assert data[1]["templateId"] == "meditate"
 
     def test_bulk_create_auto_order(
         self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
@@ -629,4 +629,4 @@ class TestBulkCreateHabits:
         # Verify counted habits
         counted_habits = [h for h in data if h["type"] == HabitType.COUNTED.value]
         assert len(counted_habits) == 2
-        assert all(h["target_count"] is not None for h in counted_habits)
+        assert all(h["targetCount"] is not None for h in counted_habits)

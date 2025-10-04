@@ -11,9 +11,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import settings
 from app.api import auth, users, challenges, habits, entries, habit_templates
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.starlette import StarletteIntegration
+
+# Optional Sentry integration
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(
@@ -26,7 +32,7 @@ logger = logging.getLogger(__name__)
 # Only in production or if explicitly enabled
 is_production = settings.ENVIRONMENT == "production"
 
-if settings.SENTRY_DSN and (is_production or settings.SENTRY_ENABLED):
+if SENTRY_AVAILABLE and settings.SENTRY_DSN and (is_production or settings.SENTRY_ENABLED):
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
         environment=settings.ENVIRONMENT,
@@ -45,6 +51,8 @@ if settings.SENTRY_DSN and (is_production or settings.SENTRY_ENABLED):
     )
 
     logger.info("✓ Sentry initialized for error tracking")
+elif not SENTRY_AVAILABLE:
+    logger.info("Sentry SDK not installed (optional dependency)")
 else:
     logger.info("Sentry disabled (no DSN or not enabled)")
 

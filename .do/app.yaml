@@ -11,6 +11,13 @@ services:
     http_port: 8080
     instance_count: 1
     instance_size_slug: basic-xxs
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
     routes:
       - path: /
     envs:
@@ -28,7 +35,12 @@ services:
         type: SECRET
       - key: GOOGLE_REDIRECT_URI
         scope: RUN_TIME
+        type: SECRET
+      - key: API_BASE_URL
+        scope: RUN_TIME
       - key: FRONTEND_URL
+        scope: RUN_TIME
+      - key: CORS_ORIGINS
         scope: RUN_TIME
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         scope: RUN_TIME
@@ -39,6 +51,9 @@ services:
       - key: DEBUG
         scope: RUN_TIME
         value: "false"
+      - key: ALGORITHM
+        scope: RUN_TIME
+        value: "HS256"
 
 databases:
   - name: soberoctobr-db

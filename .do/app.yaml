@@ -1,0 +1,40 @@
+name: soberoctobr-backend
+services:
+  - name: api
+    environment_slug: python
+    github:
+      repo: mindfulent/soberoctobr-backend
+      branch: master
+      deploy_on_push: true
+    run_command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    routes:
+      - path: /
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+      - key: SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: GOOGLE_CLIENT_ID
+        scope: RUN_TIME
+        type: SECRET
+      - key: GOOGLE_CLIENT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+      - key: GOOGLE_REDIRECT_URI
+        scope: RUN_TIME
+      - key: FRONTEND_URL
+        scope: RUN_TIME
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        scope: RUN_TIME
+        value: "10080"
+
+databases:
+  - name: soberoctobr-db
+    engine: PG
+    production: false
+    version: "16"

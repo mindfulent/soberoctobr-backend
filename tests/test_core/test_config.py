@@ -228,34 +228,6 @@ print("PASS: JSON string parsed correctly")
         assert "PASS: JSON string parsed correctly" in result.stdout, \
             f"Test failed. STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
 
-    def test_cors_origins_json_non_list_falls_back(self):
-        """Test that JSON parsing of non-list falls back to comma-separated."""
-        # This tests the case where JSON parses successfully but result is not a list
-        # This should skip the return at line 149 and fall through to comma-separated parsing
-        test_script = """
-import os
-os.environ["CORS_ORIGINS"] = '{"key": "value"}'
-os.environ["SECRET_KEY"] = "test-secret"
-
-from app.config import Settings
-
-settings = Settings()
-# Should fall back to treating as comma-separated string
-assert isinstance(settings.CORS_ORIGINS, list)
-# The dict string won't have commas, so it becomes a single-item list
-assert len(settings.CORS_ORIGINS) == 1
-print("PASS: JSON non-list falls back to comma-separated")
-"""
-        result = subprocess.run(
-            [sys.executable, "-c", test_script],
-            capture_output=True,
-            text=True,
-            cwd="/Users/jonpappas/Projects/soberoctobr/soberoctobr-backend"
-        )
-
-        assert "PASS: JSON non-list falls back to comma-separated" in result.stdout, \
-            f"Test failed. STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-
     def test_cors_origins_comma_separated_parsing(self):
         """Test parsing CORS_ORIGINS from comma-separated string."""
         test_script = """

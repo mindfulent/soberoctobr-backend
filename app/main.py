@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"API Base URL: {settings.API_BASE_URL}")
     logger.info("=" * 50)
     
-    # Test database connection
+    # Test database connection (non-blocking)
     try:
         from app.core.database import engine
         from sqlalchemy import text
@@ -46,8 +46,8 @@ async def lifespan(app: FastAPI):
             conn.execute(text("SELECT 1"))
         logger.info("✓ Database connection verified")
     except Exception as e:
-        logger.error(f"✗ Database connection failed: {e}")
-        raise
+        logger.warning(f"⚠ Database connection issue during startup: {e}")
+        logger.warning("Application will start but database operations may fail")
     
     logger.info("✓ Application startup complete")
     
@@ -96,7 +96,24 @@ async def health_check():
     Returns:
         dict: Application health status
     """
-    return {"status": "healthy", "version": "0.1.0"}
+    import os
+    return {
+        "status": "healthy",
+        "version": "0.1.0",
+        "environment": settings.ENVIRONMENT,
+        "port": os.getenv("PORT", "8080")
+    }
+
+
+@app.get("/ping")
+async def ping():
+    """
+    Simple ping endpoint for basic connectivity testing.
+    
+    Returns:
+        dict: Simple pong response
+    """
+    return {"ping": "pong"}
 
 
 # Include API routes

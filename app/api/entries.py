@@ -17,7 +17,10 @@ router = APIRouter()
 
 
 def normalize_date(dt: datetime) -> datetime:
-    """Normalize datetime to start of day (midnight UTC)."""
+    """Normalize datetime to start of day (midnight UTC), removing timezone info."""
+    # Remove timezone info to make comparison possible
+    if dt.tzinfo is not None:
+        dt = dt.replace(tzinfo=None)
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
 

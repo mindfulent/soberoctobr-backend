@@ -268,51 +268,67 @@ async def get_challenge_progress(
         DailyEntry.date <= today
     ).all()
     
-    # Calculate total habits completed
+    # Calculate total habits completed and total possible habits
+    # Account for when each habit was created
     total_habits_completed = sum(1 for entry in all_entries if entry.completed)
-    total_possible_habits = current_day * len(habits)
+    total_possible_habits = 0
+
+    for habit in habits:
+        # Calculate how many days this habit has been active
+        habit_created = normalize_date(habit.created_at)
+        habit_start = max(habit_created, start_date)
+        habit_days_active = min((today - habit_start).days + 1, current_day)
+        total_possible_habits += max(0, habit_days_active)
+
     overall_completion_percentage = (
         round((total_habits_completed / total_possible_habits) * 100)
         if total_possible_habits > 0 else 0
     )
     
+    # Helper function to get habits active on a given date
+    def get_active_habits_for_date(check_date: datetime):
+        """Return list of habits that were active on the given date."""
+        return [h for h in habits if normalize_date(h.created_at) <= check_date]
+
     # Calculate streaks
-    # A perfect day is when all habits are completed
+    # A perfect day is when all habits active on that day are completed
     entries_by_date = {}
     for entry in all_entries:
         date_key = normalize_date(entry.date)
         if date_key not in entries_by_date:
             entries_by_date[date_key] = []
         entries_by_date[date_key].append(entry)
-    
+
     # Calculate streaks by checking consecutive perfect days
     current_streak = 0
     longest_streak = 0
     temp_streak = 0
-    
+
     # Check from start date to today
     check_date = start_date
     while check_date <= today:
         day_entries = entries_by_date.get(check_date, [])
         completed_count = sum(1 for e in day_entries if e.completed)
-        
-        if completed_count == len(habits):
-            # Perfect day
+        active_habits = get_active_habits_for_date(check_date)
+
+        if len(active_habits) > 0 and completed_count == len(active_habits):
+            # Perfect day (all active habits completed)
             temp_streak += 1
             longest_streak = max(longest_streak, temp_streak)
         else:
             temp_streak = 0
-        
+
         check_date += timedelta(days=1)
-    
+
     # Current streak is the streak of completed days leading up to (but not including) today
     # We start from yesterday because today might still be in progress
     check_date = today - timedelta(days=1)
     while check_date >= start_date:
         day_entries = entries_by_date.get(check_date, [])
         completed_count = sum(1 for e in day_entries if e.completed)
+        active_habits = get_active_habits_for_date(check_date)
 
-        if completed_count == len(habits):
+        if len(active_habits) > 0 and completed_count == len(active_habits):
             current_streak += 1
         else:
             break
@@ -325,13 +341,14 @@ async def get_challenge_progress(
         check_date = today - timedelta(days=i)
         if check_date < start_date:
             continue
-            
+
         day_entries = entries_by_date.get(check_date, [])
         completed_count = sum(1 for e in day_entries if e.completed)
-        total_count = len(habits)
-        is_perfect = completed_count == total_count
+        active_habits = get_active_habits_for_date(check_date)
+        total_count = len(active_habits)
+        is_perfect = total_count > 0 and completed_count == total_count
         completion_percentage = round((completed_count / total_count) * 100) if total_count > 0 else 0
-        
+
         last_7_days.append(DayProgress(
             date=check_date,
             completed_count=completed_count,
@@ -345,7 +362,14 @@ async def get_challenge_progress(
     for habit in habits:
         habit_entries = [e for e in all_entries if e.habit_id == habit.id]
         completed_count = sum(1 for e in habit_entries if e.completed)
-        completion_percentage = round((completed_count / current_day) * 100) if current_day > 0 else 0
+
+        # Calculate days this habit has been active
+        habit_created = normalize_date(habit.created_at)
+        habit_start = max(habit_created, start_date)
+        habit_days_active = min((today - habit_start).days + 1, current_day)
+        habit_total_days = max(0, habit_days_active)
+
+        completion_percentage = round((completed_count / habit_total_days) * 100) if habit_total_days > 0 else 0
 
         # Get icon from habit template if available
         icon = None
@@ -359,7 +383,7 @@ async def get_challenge_progress(
             habit_name=habit.name,
             icon=icon,
             completed_count=completed_count,
-            total_days=current_day,
+            total_days=habit_total_days,
             completion_percentage=completion_percentage
         ))
     

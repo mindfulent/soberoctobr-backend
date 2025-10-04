@@ -408,14 +408,15 @@ class TestGetChallengeProgress:
         self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
     ):
         """Test streak calculation with perfect and imperfect days."""
-        # Create habits
+        # Create habits with created_at set to challenge start
         habit1 = Habit(
             id="habit-1",
             challenge_id=test_challenge.id,
             name="Habit 1",
             type="binary",
             is_active=True,
-            order=1
+            order=1,
+            created_at=test_challenge.start_date
         )
         habit2 = Habit(
             id="habit-2",
@@ -423,7 +424,8 @@ class TestGetChallengeProgress:
             name="Habit 2",
             type="binary",
             is_active=True,
-            order=2
+            order=2,
+            created_at=test_challenge.start_date
         )
         db_session.add_all([habit1, habit2])
         db_session.commit()
@@ -829,7 +831,7 @@ class TestNormalizeDateFunction:
         db_session.add(challenge)
         db_session.commit()
 
-        # Create 6 habits
+        # Create 6 habits with created_at set to challenge start
         habits = []
         for i in range(6):
             habit = Habit(
@@ -838,7 +840,8 @@ class TestNormalizeDateFunction:
                 name=f"Habit {i+1}",
                 type="binary",
                 is_active=True,
-                order=i+1
+                order=i+1,
+                created_at=start_date
             )
             habits.append(habit)
             db_session.add(habit)
@@ -969,14 +972,15 @@ class TestNormalizeDateFunction:
         db_session.add(challenge)
         db_session.commit()
 
-        # Create a habit
+        # Create a habit with created_at set to challenge start
         habit = Habit(
             id="habit-1",
             challenge_id=challenge.id,
             name="Test Habit",
             type="binary",
             is_active=True,
-            order=1
+            order=1,
+            created_at=start_date
         )
         db_session.add(habit)
         db_session.commit()
@@ -1010,3 +1014,323 @@ class TestNormalizeDateFunction:
         assert habit_progress["totalDays"] == 4, "Should count current_day (4), not days_elapsed (3)"
         assert habit_progress["completionPercentage"] <= 100, "Should never exceed 100%"
         assert habit_progress["completionPercentage"] == 100, "Should be 100% since all 4 days completed"
+
+    def test_progress_with_habit_added_mid_challenge(
+        self, client, test_user: User, auth_headers: dict, db_session: Session
+    ):
+        """Test that progress calculations are correct when a habit is added mid-challenge."""
+        # Create a challenge that started 10 days ago
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        start_date = today - timedelta(days=9)  # Started 9 days ago, today is day 10
+        end_date = start_date + timedelta(days=30)
+
+        challenge = Challenge(
+            id=str(uuid.uuid4()),
+            user_id=test_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            status=ChallengeStatus.ACTIVE
+        )
+        db_session.add(challenge)
+        db_session.commit()
+
+        # Create first habit that existed from day 1
+        habit1 = Habit(
+            id="habit-1",
+            challenge_id=challenge.id,
+            name="Original Habit",
+            type="binary",
+            is_active=True,
+            order=1,
+            created_at=start_date
+        )
+        db_session.add(habit1)
+        db_session.commit()
+
+        # Complete habit1 for all 10 days
+        for i in range(10):
+            entry_date = start_date + timedelta(days=i)
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit1.id,
+                date=entry_date,
+                completed=True
+            )
+            db_session.add(entry)
+        db_session.commit()
+
+        # Now add a second habit on day 6 (5 days ago)
+        habit2_created = start_date + timedelta(days=5)  # Day 6 of challenge
+        habit2 = Habit(
+            id="habit-2",
+            challenge_id=challenge.id,
+            name="New Habit Added Mid-Challenge",
+            type="binary",
+            is_active=True,
+            order=2,
+            created_at=habit2_created
+        )
+        db_session.add(habit2)
+        db_session.commit()
+
+        # Complete habit2 for 3 out of its 5 days (days 6, 7, 8, 9, 10)
+        # Complete days 6, 7, 8; miss days 9, 10
+        for i in range(5, 8):  # Days 6, 7, 8
+            entry_date = start_date + timedelta(days=i)
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit2.id,
+                date=entry_date,
+                completed=True
+            )
+            db_session.add(entry)
+        # Add incomplete entries for days 9, 10
+        for i in range(8, 10):
+            entry_date = start_date + timedelta(days=i)
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit2.id,
+                date=entry_date,
+                completed=False
+            )
+            db_session.add(entry)
+        db_session.commit()
+
+        # Get progress
+        response = client.get(
+            f"/api/v1/challenges/{challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Verify overall stats
+        assert data["currentDay"] == 10, "Should be on day 10"
+
+        # Total habits completed: habit1 (10 days) + habit2 (3 days) = 13
+        assert data["totalHabitsCompleted"] == 13, "Should count 13 completed habits"
+
+        # Total possible: habit1 (10 days) + habit2 (5 days since creation) = 15
+        assert data["totalPossibleHabits"] == 15, "Should count habit1 for 10 days, habit2 for 5 days only"
+
+        # Completion: 13/15 = 87%
+        expected_percentage = round((13 / 15) * 100)
+        assert data["overallCompletionPercentage"] == expected_percentage, f"Should be {expected_percentage}%"
+
+        # Per-habit stats
+        habit1_progress = next(h for h in data["habitProgress"] if h["habitId"] == "habit-1")
+        habit2_progress = next(h for h in data["habitProgress"] if h["habitId"] == "habit-2")
+
+        # Habit 1: 10 completed / 10 days = 100%
+        assert habit1_progress["completedCount"] == 10
+        assert habit1_progress["totalDays"] == 10, "Habit 1 existed for all 10 days"
+        assert habit1_progress["completionPercentage"] == 100
+
+        # Habit 2: 3 completed / 5 days (since creation) = 60%
+        assert habit2_progress["completedCount"] == 3
+        assert habit2_progress["totalDays"] == 5, "Habit 2 only existed for 5 days"
+        assert habit2_progress["completionPercentage"] == 60
+
+    def test_progress_with_habit_deactivated_mid_challenge(
+        self, client, test_user: User, auth_headers: dict, db_session: Session
+    ):
+        """Test that progress calculations are correct when a habit is deactivated mid-challenge."""
+        # Create a challenge that started 10 days ago
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        start_date = today - timedelta(days=9)  # Started 9 days ago, today is day 10
+        end_date = start_date + timedelta(days=30)
+
+        challenge = Challenge(
+            id=str(uuid.uuid4()),
+            user_id=test_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            status=ChallengeStatus.ACTIVE
+        )
+        db_session.add(challenge)
+        db_session.commit()
+
+        # Create two habits that existed from day 1
+        habit1 = Habit(
+            id="habit-1",
+            challenge_id=challenge.id,
+            name="Active Habit",
+            type="binary",
+            is_active=True,
+            order=1,
+            created_at=start_date
+        )
+        habit2 = Habit(
+            id="habit-2",
+            challenge_id=challenge.id,
+            name="Deactivated Habit",
+            type="binary",
+            is_active=False,  # Deactivated
+            order=2,
+            created_at=start_date
+        )
+        db_session.add_all([habit1, habit2])
+        db_session.commit()
+
+        # Complete habit1 for 8 out of 10 days
+        for i in range(10):
+            entry_date = start_date + timedelta(days=i)
+            completed = i < 8  # First 8 days completed
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit1.id,
+                date=entry_date,
+                completed=completed
+            )
+            db_session.add(entry)
+
+        # Habit2 was completed for first 5 days before being deactivated
+        for i in range(5):
+            entry_date = start_date + timedelta(days=i)
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit2.id,
+                date=entry_date,
+                completed=True
+            )
+            db_session.add(entry)
+        db_session.commit()
+
+        # Get progress
+        response = client.get(
+            f"/api/v1/challenges/{challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Only active habit should be counted
+        assert data["currentDay"] == 10
+
+        # Only habit1's completions should count: 8 completed
+        assert data["totalHabitsCompleted"] == 8, "Should only count active habit completions"
+
+        # Only habit1's days should count: 10 days
+        assert data["totalPossibleHabits"] == 10, "Should only count active habit days"
+
+        # Completion: 8/10 = 80%
+        assert data["overallCompletionPercentage"] == 80
+
+        # Only active habit should appear in habitProgress
+        assert len(data["habitProgress"]) == 1, "Should only show active habit"
+        assert data["habitProgress"][0]["habitId"] == "habit-1"
+
+    def test_progress_with_multiple_habits_added_at_different_times(
+        self, client, test_user: User, auth_headers: dict, db_session: Session
+    ):
+        """Test progress with multiple habits added at different days."""
+        # Create a challenge that started 15 days ago
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        start_date = today - timedelta(days=14)  # Started 14 days ago, today is day 15
+        end_date = start_date + timedelta(days=30)
+
+        challenge = Challenge(
+            id=str(uuid.uuid4()),
+            user_id=test_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            status=ChallengeStatus.ACTIVE
+        )
+        db_session.add(challenge)
+        db_session.commit()
+
+        # Habit 1: Created on day 1, completed all days
+        habit1 = Habit(
+            id="habit-1",
+            challenge_id=challenge.id,
+            name="Habit from Day 1",
+            type="binary",
+            is_active=True,
+            order=1,
+            created_at=start_date
+        )
+        # Habit 2: Created on day 5, completed all days since
+        habit2 = Habit(
+            id="habit-2",
+            challenge_id=challenge.id,
+            name="Habit from Day 5",
+            type="binary",
+            is_active=True,
+            order=2,
+            created_at=start_date + timedelta(days=4)
+        )
+        # Habit 3: Created on day 10, completed all days since
+        habit3 = Habit(
+            id="habit-3",
+            challenge_id=challenge.id,
+            name="Habit from Day 10",
+            type="binary",
+            is_active=True,
+            order=3,
+            created_at=start_date + timedelta(days=9)
+        )
+        db_session.add_all([habit1, habit2, habit3])
+        db_session.commit()
+
+        # Complete all habits for all their active days
+        # Habit 1: 15 days
+        for i in range(15):
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit1.id,
+                date=start_date + timedelta(days=i),
+                completed=True
+            )
+            db_session.add(entry)
+
+        # Habit 2: 11 days (from day 5 to day 15)
+        for i in range(4, 15):
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit2.id,
+                date=start_date + timedelta(days=i),
+                completed=True
+            )
+            db_session.add(entry)
+
+        # Habit 3: 6 days (from day 10 to day 15)
+        for i in range(9, 15):
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit3.id,
+                date=start_date + timedelta(days=i),
+                completed=True
+            )
+            db_session.add(entry)
+        db_session.commit()
+
+        # Get progress
+        response = client.get(
+            f"/api/v1/challenges/{challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Total completed: 15 + 11 + 6 = 32
+        assert data["totalHabitsCompleted"] == 32
+
+        # Total possible: 15 + 11 + 6 = 32
+        assert data["totalPossibleHabits"] == 32
+
+        # All habits 100% complete
+        assert data["overallCompletionPercentage"] == 100
+
+        # Verify per-habit stats
+        habit1_progress = next(h for h in data["habitProgress"] if h["habitId"] == "habit-1")
+        habit2_progress = next(h for h in data["habitProgress"] if h["habitId"] == "habit-2")
+        habit3_progress = next(h for h in data["habitProgress"] if h["habitId"] == "habit-3")
+
+        assert habit1_progress["totalDays"] == 15
+        assert habit1_progress["completionPercentage"] == 100
+
+        assert habit2_progress["totalDays"] == 11
+        assert habit2_progress["completionPercentage"] == 100
+
+        assert habit3_progress["totalDays"] == 6
+        assert habit3_progress["completionPercentage"] == 100

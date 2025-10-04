@@ -28,7 +28,7 @@ async def list_habit_templates(
     during onboarding to quickly set up their challenge without typing.
     
     Args:
-        category: Optional category filter (sober_october, physical_health, 
+        category: Optional category filter (jons_list, physical_health, 
                  mental_wellness, daily_routines)
     
     Returns:
@@ -43,7 +43,7 @@ async def list_habit_templates(
                 "type": "binary",
                 "preferred_time": "all_day",
                 "target_count": null,
-                "category": "sober_october",
+                "category": "jons_list",
                 "icon": "🚫🍺"
             },
             ...

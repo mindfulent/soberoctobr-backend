@@ -36,19 +36,19 @@ class TestHabitTemplates:
         assert "icon" in template
         assert template["type"] in ["binary", "counted"]
 
-    def test_list_templates_by_category_sober_october(self):
-        """Test filtering templates by sober_october category."""
-        response = client.get("/api/v1/habit-templates?category=sober_october")
+    def test_list_templates_by_category_jons_list(self):
+        """Test filtering templates by jons_list category."""
+        response = client.get("/api/v1/habit-templates?category=jons_list")
         
         assert response.status_code == 200
         templates = response.json()
         
-        # Should have sober october templates
+        # Should have Jon's List templates
         assert len(templates) > 0
         
-        # All should be in sober_october category
+        # All should be in jons_list category
         for template in templates:
-            assert template["category"] == "sober_october"
+            assert template["category"] == "jons_list"
         
         # Check for specific templates
         template_ids = [t["id"] for t in templates]
@@ -131,7 +131,7 @@ class TestHabitTemplates:
         assert template["name"] == "No Alcohol"
         assert template["type"] == "binary"
         assert template["preferred_time"] == "all_day"
-        assert template["category"] == "sober_october"
+        assert template["category"] == "jons_list"
         assert "icon" in template
 
     def test_get_counted_template(self):
@@ -172,7 +172,7 @@ class TestHabitTemplates:
             assert template["preferred_time"] in ["morning", "afternoon", "evening", "all_day"]
             
             # Category must be valid
-            assert template["category"] in ["sober_october", "physical_health", "mental_wellness", "daily_routines"]
+            assert template["category"] in ["jons_list", "physical_health", "mental_wellness", "daily_routines"]
 
     def test_counted_templates_have_target_count(self):
         """Test that counted templates have target_count field."""

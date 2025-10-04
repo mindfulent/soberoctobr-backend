@@ -11,6 +11,7 @@ from app.models.challenge import Challenge, ChallengeStatus
 from app.models.habit import Habit
 from app.models.daily_entry import DailyEntry
 from app.models.user import User
+from app.api.challenges import normalize_date
 
 
 class TestGetChallenges:
@@ -600,6 +601,42 @@ class TestGetChallengeProgress:
 class TestNormalizeDateFunction:
     """Tests for the normalize_date helper function."""
 
+    def test_normalize_date_function_with_timezone_aware_datetime(self):
+        """Test normalize_date function directly with timezone-aware datetime."""
+        # Create a timezone-aware datetime
+        tz_aware = datetime(2024, 10, 15, 14, 30, 45, tzinfo=timezone.utc)
+
+        # Normalize it
+        normalized = normalize_date(tz_aware)
+
+        # Should be midnight, naive (no timezone)
+        assert normalized.hour == 0
+        assert normalized.minute == 0
+        assert normalized.second == 0
+        assert normalized.microsecond == 0
+        assert normalized.tzinfo is None
+        assert normalized.year == 2024
+        assert normalized.month == 10
+        assert normalized.day == 15
+
+    def test_normalize_date_function_with_naive_datetime(self):
+        """Test normalize_date function with naive datetime."""
+        # Create a naive datetime
+        naive = datetime(2024, 10, 15, 14, 30, 45)
+
+        # Normalize it
+        normalized = normalize_date(naive)
+
+        # Should be midnight, still naive
+        assert normalized.hour == 0
+        assert normalized.minute == 0
+        assert normalized.second == 0
+        assert normalized.microsecond == 0
+        assert normalized.tzinfo is None
+        assert normalized.year == 2024
+        assert normalized.month == 10
+        assert normalized.day == 15
+
     def test_normalize_date_with_timezone(
         self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
     ):
@@ -635,3 +672,112 @@ class TestNormalizeDateFunction:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["challenge_id"] == test_challenge.id
+
+    def test_challenge_started_recently(
+        self, client, test_user: User, auth_headers: dict, db_session: Session
+    ):
+        """Test progress when challenge started less than 7 days ago."""
+        # Create a challenge that started today
+        start_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=30)
+
+        challenge = Challenge(
+            id=str(uuid.uuid4()),
+            user_id=test_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            status=ChallengeStatus.ACTIVE
+        )
+        db_session.add(challenge)
+        db_session.commit()
+
+        # Create a habit
+        habit = Habit(
+            id="habit-1",
+            challenge_id=challenge.id,
+            name="Test Habit",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        # Get progress (should handle dates before challenge start)
+        response = client.get(
+            f"/api/v1/challenges/{challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        # last_7_days should only include dates from start_date onwards
+        assert isinstance(data["last_7_days"], list)
+        for day in data["last_7_days"]:
+            day_date = datetime.fromisoformat(day["date"])
+            assert day_date >= start_date
+
+    def test_habit_with_template_id(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test progress calculation with habit that has a template_id."""
+        # Create a habit with a template_id
+        habit = Habit(
+            id="habit-1",
+            challenge_id=test_challenge.id,
+            name="Templated Habit",
+            type="binary",
+            is_active=True,
+            order=1,
+            template_id="some-template-id"
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        response = client.get(
+            f"/api/v1/challenges/{test_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert len(data["habit_progress"]) == 1
+        # Icon should be None since we're not actually loading templates
+        assert data["habit_progress"][0]["icon"] is None
+
+    def test_challenge_with_timezone_aware_dates(
+        self, client, test_user: User, auth_headers: dict, db_session: Session
+    ):
+        """Test that challenges with timezone-aware dates are handled correctly."""
+        # Create a challenge with timezone-aware dates
+        start_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=30)
+
+        challenge = Challenge(
+            id=str(uuid.uuid4()),
+            user_id=test_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            status=ChallengeStatus.ACTIVE
+        )
+        db_session.add(challenge)
+        db_session.commit()
+
+        # Create a habit
+        habit = Habit(
+            id="habit-1",
+            challenge_id=challenge.id,
+            name="Test Habit",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        # Get progress - this should normalize the timezone-aware dates
+        response = client.get(
+            f"/api/v1/challenges/{challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["challenge_id"] == challenge.id

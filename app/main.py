@@ -8,6 +8,7 @@ including middleware, CORS settings, and route registration.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
+from app.api import auth, users, challenges, habits, entries
 
 # Create FastAPI application instance
 app = FastAPI(
@@ -32,7 +33,7 @@ app.add_middleware(
 async def root():
     """
     Root endpoint for health check.
-    
+
     Returns:
         dict: Simple greeting message
     """
@@ -43,7 +44,7 @@ async def root():
 async def health_check():
     """
     Health check endpoint.
-    
+
     Returns:
         dict: Application health status
     """
@@ -51,12 +52,14 @@ async def health_check():
 
 
 # Include API routes
-# from app.api import auth, habits, users
-# app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
-# app.include_router(habits.router, prefix="/api/habits", tags=["habits"])
-# app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(challenges.router, prefix="/api/v1/challenges", tags=["challenges"])
+app.include_router(habits.router, prefix="/api/v1", tags=["habits"])
+app.include_router(entries.router, prefix="/api/v1", tags=["entries"])
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

@@ -261,16 +261,18 @@ async def get_challenge_progress(
     current_day = min(days_elapsed + 1, 30)
     total_days = (end_date - start_date).days + 1
     
-    # Get all entries for this challenge
+    # Get all entries for this challenge within the relevant date range
     all_entries = db.query(DailyEntry).filter(
-        DailyEntry.habit_id.in_(habit_ids)
+        DailyEntry.habit_id.in_(habit_ids),
+        DailyEntry.date >= start_date,
+        DailyEntry.date <= today
     ).all()
     
     # Calculate total habits completed
     total_habits_completed = sum(1 for entry in all_entries if entry.completed)
-    total_possible_habits = days_elapsed * len(habits)
+    total_possible_habits = current_day * len(habits)
     overall_completion_percentage = (
-        round((total_habits_completed / total_possible_habits) * 100) 
+        round((total_habits_completed / total_possible_habits) * 100)
         if total_possible_habits > 0 else 0
     )
     
@@ -342,7 +344,7 @@ async def get_challenge_progress(
     for habit in habits:
         habit_entries = [e for e in all_entries if e.habit_id == habit.id]
         completed_count = sum(1 for e in habit_entries if e.completed)
-        completion_percentage = round((completed_count / days_elapsed) * 100) if days_elapsed > 0 else 0
+        completion_percentage = round((completed_count / current_day) * 100) if current_day > 0 else 0
 
         # Get icon from habit template if available
         icon = None
@@ -356,7 +358,7 @@ async def get_challenge_progress(
             habit_name=habit.name,
             icon=icon,
             completed_count=completed_count,
-            total_days=days_elapsed,
+            total_days=current_day,
             completion_percentage=completion_percentage
         ))
     

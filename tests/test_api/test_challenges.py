@@ -798,3 +798,208 @@ class TestNormalizeDateFunction:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["challengeId"] == challenge.id
+
+    def test_completion_percentage_bug_on_day_4(
+        self, client, test_user: User, auth_headers: dict, db_session: Session
+    ):
+        """
+        Test that reproduces the bug where completion shows > 100%.
+        Scenario: Day 4 of challenge, 6 habits, user completed 20 habits total.
+        Expected: Should show realistic percentage, never > 100%.
+        """
+        # Create a challenge that started 3 days ago (today is day 4)
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        start_date = today - timedelta(days=3)  # Started 3 days ago
+        end_date = start_date + timedelta(days=30)
+
+        challenge = Challenge(
+            id=str(uuid.uuid4()),
+            user_id=test_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            status=ChallengeStatus.ACTIVE
+        )
+        db_session.add(challenge)
+        db_session.commit()
+
+        # Create 6 habits
+        habits = []
+        for i in range(6):
+            habit = Habit(
+                id=f"habit-{i+1}",
+                challenge_id=challenge.id,
+                name=f"Habit {i+1}",
+                type="binary",
+                is_active=True,
+                order=i+1
+            )
+            habits.append(habit)
+            db_session.add(habit)
+        db_session.commit()
+
+        # Create entries to have ~20 completed habits total
+        # Day 1 (3 days ago): 5 habits completed
+        # Day 2 (2 days ago): 6 habits completed (all)
+        # Day 3 (yesterday): 5 habits completed
+        # Day 4 (today): 4 habits completed
+        # Total = 20 completed habits
+
+        entry_count = 0
+        # Day 1 - 5 completed
+        day1_date = start_date
+        for i in range(5):
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habits[i].id,
+                date=day1_date,
+                completed=True
+            )
+            db_session.add(entry)
+            entry_count += 1
+        # One not completed on day 1
+        entry = DailyEntry(
+            id=str(uuid.uuid4()),
+            habit_id=habits[5].id,
+            date=day1_date,
+            completed=False
+        )
+        db_session.add(entry)
+
+        # Day 2 - 6 completed (all)
+        day2_date = start_date + timedelta(days=1)
+        for i in range(6):
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habits[i].id,
+                date=day2_date,
+                completed=True
+            )
+            db_session.add(entry)
+            entry_count += 1
+
+        # Day 3 - 5 completed
+        day3_date = start_date + timedelta(days=2)
+        for i in range(5):
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habits[i].id,
+                date=day3_date,
+                completed=True
+            )
+            db_session.add(entry)
+            entry_count += 1
+        # One not completed on day 3
+        entry = DailyEntry(
+            id=str(uuid.uuid4()),
+            habit_id=habits[5].id,
+            date=day3_date,
+            completed=False
+        )
+        db_session.add(entry)
+
+        # Day 4 (today) - 4 completed
+        day4_date = today
+        for i in range(4):
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habits[i].id,
+                date=day4_date,
+                completed=True
+            )
+            db_session.add(entry)
+            entry_count += 1
+        # Two not completed on day 4
+        for i in range(4, 6):
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habits[i].id,
+                date=day4_date,
+                completed=False
+            )
+            db_session.add(entry)
+
+        db_session.commit()
+
+        # Get progress
+        response = client.get(
+            f"/api/v1/challenges/{challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Verify the bug scenario
+        assert data["currentDay"] == 4, "Should be on day 4"
+        assert data["daysElapsed"] == 3, "3 days should have elapsed"
+        assert data["totalHabitsCompleted"] == 20, "Should have 20 completed habits"
+
+        # BUG: This will likely fail with current implementation
+        # total_possible_habits = days_elapsed * len(habits) = 3 * 6 = 18
+        # completion = 20 / 18 = 111%
+        assert data["totalPossibleHabits"] == 24, "Should be 4 days * 6 habits = 24"
+        assert data["overallCompletionPercentage"] <= 100, "Completion should never exceed 100%"
+
+        # Expected correct value: 20 / 24 = 83%
+        expected_percentage = round((20 / 24) * 100)
+        assert data["overallCompletionPercentage"] == expected_percentage
+
+    def test_per_habit_completion_never_exceeds_100(
+        self, client, test_user: User, auth_headers: dict, db_session: Session
+    ):
+        """Test that per-habit completion percentage never exceeds 100%."""
+        # Create a challenge that started 3 days ago
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        start_date = today - timedelta(days=3)
+        end_date = start_date + timedelta(days=30)
+
+        challenge = Challenge(
+            id=str(uuid.uuid4()),
+            user_id=test_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            status=ChallengeStatus.ACTIVE
+        )
+        db_session.add(challenge)
+        db_session.commit()
+
+        # Create a habit
+        habit = Habit(
+            id="habit-1",
+            challenge_id=challenge.id,
+            name="Test Habit",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        # Complete the habit for all 4 days (including today)
+        for i in range(4):
+            entry_date = start_date + timedelta(days=i)
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit.id,
+                date=entry_date,
+                completed=True
+            )
+            db_session.add(entry)
+        db_session.commit()
+
+        # Get progress
+        response = client.get(
+            f"/api/v1/challenges/{challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Verify completion percentage
+        habit_progress = data["habitProgress"][0]
+        assert habit_progress["completed_count"] == 4
+
+        # BUG: With current implementation using days_elapsed (3), this would be:
+        # 4 / 3 = 133%
+        assert habit_progress["total_days"] == 4, "Should count current_day (4), not days_elapsed (3)"
+        assert habit_progress["completion_percentage"] <= 100, "Should never exceed 100%"
+        assert habit_progress["completion_percentage"] == 100, "Should be 100% since all 4 days completed"

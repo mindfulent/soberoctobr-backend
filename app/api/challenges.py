@@ -14,6 +14,7 @@ from app.models.habit import Habit
 from app.models.daily_entry import DailyEntry
 from app.schemas.challenge import ChallengeCreate, ChallengeResponse, ChallengeUpdate
 from app.schemas.progress import ChallengeProgressResponse, DayProgress, HabitProgress
+from app.utils.habit_templates import get_template_by_id
 
 router = APIRouter()
 
@@ -342,14 +343,14 @@ async def get_challenge_progress(
         habit_entries = [e for e in all_entries if e.habit_id == habit.id]
         completed_count = sum(1 for e in habit_entries if e.completed)
         completion_percentage = round((completed_count / days_elapsed) * 100) if days_elapsed > 0 else 0
-        
+
         # Get icon from habit template if available
         icon = None
         if habit.template_id:
-            # Icon would come from template, but we'll handle this simply
-            # You could join with templates table if needed
-            pass
-        
+            template = get_template_by_id(habit.template_id)
+            if template:
+                icon = template.get('icon')
+
         habit_progress.append(HabitProgress(
             habit_id=habit.id,
             habit_name=habit.name,

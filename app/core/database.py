@@ -27,7 +27,7 @@ else:
         max_overflow=max_overflow,
         pool_recycle=300,  # Recycle connections every 5 minutes
         connect_args={
-            "connect_timeout": 5,  # Faster timeout for production
+            "connect_timeout": 30,  # Increased timeout for network latency
             "options": "-c statement_timeout=30000"  # 30 second statement timeout
         }
     )

@@ -52,8 +52,7 @@ async def health_check():
 
 
 # Include API routes
-# Auth routes use /api/auth for OAuth callback compatibility
-app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(challenges.router, prefix="/api/v1/challenges", tags=["challenges"])
 app.include_router(habits.router, prefix="/api/v1", tags=["habits"])

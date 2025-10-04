@@ -123,7 +123,7 @@ async def google_callback(
         # The redirect_uri must match what was sent to Google OAuth
         # This is the backend callback URL (where we are now)
         # Use configured redirect URI or construct from API base URL
-        redirect_uri = f"{settings.API_BASE_URL}/api/auth/google/callback"
+        redirect_uri = f"{settings.API_BASE_URL}/api/v1/auth/google/callback"
         
         # Exchange authorization code for access token
         token_data = await exchange_code_for_token(code, redirect_uri)

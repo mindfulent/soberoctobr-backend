@@ -33,7 +33,7 @@ class TestGetHabitEntries:
         data = response.json()
         assert len(data) >= 1
         assert data[0]["id"] == test_entry.id
-        assert data[0]["habit_id"] == test_binary_habit.id
+        assert data[0]["habitId"] == test_binary_habit.id
 
     def test_get_entries_with_date_filter(
         self,
@@ -91,7 +91,8 @@ class TestCreateOrUpdateEntry:
         self, client, test_binary_habit: Habit, auth_headers: dict
     ):
         """Test successfully creating a new entry."""
-        entry_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        # Use yesterday (within challenge period, not in future)
+        entry_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",
             headers=auth_headers,
@@ -110,7 +111,8 @@ class TestCreateOrUpdateEntry:
         self, client, test_counted_habit: Habit, auth_headers: dict
     ):
         """Test creating entry for counted habit."""
-        entry_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        # Use yesterday (within challenge period, not in future)
+        entry_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
         response = client.post(
             f"/api/v1/habits/{test_counted_habit.id}/entries",
             headers=auth_headers,
@@ -132,8 +134,8 @@ class TestCreateOrUpdateEntry:
         db_session: Session,
     ):
         """Test updating an existing entry (upsert behavior)."""
-        # Use today's date to avoid retroactive logging restrictions
-        entry_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        # Use yesterday (within challenge period, not in future)
+        entry_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
 
         # Create initial entry
         entry = DailyEntry(
@@ -164,8 +166,8 @@ class TestCreateOrUpdateEntry:
         self, client, test_binary_habit: Habit, test_challenge: Challenge, auth_headers: dict
     ):
         """Test creating entry within challenge period is allowed."""
-        # Entry within the challenge period (Oct 1-31)
-        entry_date = datetime(2024, 10, 5)
+        # Entry within the challenge period
+        entry_date = test_challenge.start_date + timedelta(days=5)
 
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",
@@ -182,8 +184,8 @@ class TestCreateOrUpdateEntry:
         self, client, test_binary_habit: Habit, test_challenge: Challenge, auth_headers: dict
     ):
         """Test that entries before challenge start date are rejected."""
-        # Entry before challenge start (challenge starts Oct 1)
-        entry_date = datetime(2024, 9, 30)
+        # Entry before challenge start
+        entry_date = test_challenge.start_date - timedelta(days=1)
 
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",
@@ -201,8 +203,8 @@ class TestCreateOrUpdateEntry:
         self, client, test_binary_habit: Habit, test_challenge: Challenge, auth_headers: dict
     ):
         """Test that entries after challenge end date are rejected."""
-        # Entry after challenge end (challenge ends Oct 31)
-        entry_date = datetime(2024, 11, 1)
+        # Entry after challenge end (use today, which is after challenge end_date=yesterday)
+        entry_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",
@@ -287,7 +289,7 @@ class TestGetDailyEntriesForChallenge:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert len(data) == 2
-        habit_ids = [e["habit_id"] for e in data]
+        habit_ids = [e["habitId"] for e in data]
         assert test_binary_habit.id in habit_ids
         assert test_counted_habit.id in habit_ids
 
@@ -423,8 +425,8 @@ class TestDateNormalization:
         db_session: Session,
     ):
         """Test that entry dates are normalized to midnight UTC."""
-        # Create entry with specific time (use today to avoid retroactive logging restrictions)
-        entry_date = datetime.utcnow().replace(hour=15, minute=30, second=45, microsecond=0)
+        # Create entry with specific time (use yesterday to be within challenge period)
+        entry_date = (datetime.utcnow() - timedelta(days=1)).replace(hour=15, minute=30, second=45, microsecond=0)
 
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",
@@ -453,8 +455,8 @@ class TestDateNormalization:
         db_session: Session,
     ):
         """Test that timezone-aware dates are normalized correctly."""
-        # Create entry with timezone-aware datetime (use today to avoid retroactive logging restrictions)
-        entry_date = datetime.now(timezone.utc).replace(hour=15, minute=30, second=45, microsecond=0)
+        # Create entry with timezone-aware datetime (use yesterday to be within challenge period)
+        entry_date = (datetime.now(timezone.utc) - timedelta(days=1)).replace(hour=15, minute=30, second=45, microsecond=0)
 
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",

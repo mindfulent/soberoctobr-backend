@@ -126,8 +126,8 @@ def test_challenge(db_session: Session, test_user: User) -> Challenge:
     challenge = Challenge(
         id=str(uuid.uuid4()),
         user_id=test_user.id,
-        start_date=today - timedelta(days=15),  # Started 15 days ago
-        end_date=today + timedelta(days=15),    # Ends 15 days from now
+        start_date=today - timedelta(days=29),  # Started 29 days ago
+        end_date=today - timedelta(days=1),     # Ended yesterday
         status=ChallengeStatus.ACTIVE,
     )
     db_session.add(challenge)

@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from enum import Enum
 
 
@@ -23,6 +23,7 @@ class HabitBase(BaseModel):
 class HabitCreate(HabitBase):
     """Schema for creating a new habit."""
     order: Optional[int] = Field(0, ge=0)
+    template_id: Optional[str] = Field(None, max_length=100)
 
 
 class HabitUpdate(BaseModel):
@@ -41,8 +42,14 @@ class HabitResponse(HabitBase):
     challenge_id: str
     order: int
     is_active: bool
+    template_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class HabitBulkCreate(BaseModel):
+    """Schema for bulk habit creation."""
+    habits: List[HabitCreate] = Field(..., min_length=1, max_length=10)

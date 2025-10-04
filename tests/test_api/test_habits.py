@@ -339,3 +339,280 @@ class TestDeleteHabit:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestBulkCreateHabits:
+    """Tests for POST /api/v1/challenges/{challenge_id}/habits/bulk endpoint."""
+
+    def test_bulk_create_habits_success(
+        self, client, test_challenge: Challenge, auth_headers: dict
+    ):
+        """Test successfully creating multiple habits at once."""
+        habits_data = {
+            "habits": [
+                {
+                    "name": "Meditate",
+                    "type": HabitType.BINARY.value,
+                    "preferred_time": "morning",
+                    "order": 0,
+                },
+                {
+                    "name": "Pushups",
+                    "type": HabitType.COUNTED.value,
+                    "target_count": 20,
+                    "preferred_time": "morning",
+                    "order": 1,
+                },
+                {
+                    "name": "Journal",
+                    "type": HabitType.BINARY.value,
+                    "preferred_time": "evening",
+                    "order": 2,
+                },
+            ]
+        }
+
+        response = client.post(
+            f"/api/v1/challenges/{test_challenge.id}/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert len(data) == 3
+        
+        # Verify each habit was created correctly
+        assert data[0]["name"] == "Meditate"
+        assert data[0]["type"] == HabitType.BINARY.value
+        assert data[1]["name"] == "Pushups"
+        assert data[1]["target_count"] == 20
+        assert data[2]["name"] == "Journal"
+
+    def test_bulk_create_with_template_ids(
+        self, client, test_challenge: Challenge, auth_headers: dict
+    ):
+        """Test bulk creating habits with template IDs."""
+        habits_data = {
+            "habits": [
+                {
+                    "name": "No Alcohol",
+                    "type": HabitType.BINARY.value,
+                    "preferred_time": "all_day",
+                    "template_id": "no_alcohol",
+                },
+                {
+                    "name": "Meditate",
+                    "type": HabitType.BINARY.value,
+                    "preferred_time": "morning",
+                    "template_id": "meditate",
+                },
+            ]
+        }
+
+        response = client.post(
+            f"/api/v1/challenges/{test_challenge.id}/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert len(data) == 2
+        assert data[0]["template_id"] == "no_alcohol"
+        assert data[1]["template_id"] == "meditate"
+
+    def test_bulk_create_auto_order(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test that habits get assigned orders (either explicit or auto)."""
+        # First check how many existing habits there are
+        existing_count = db_session.query(Habit).filter(
+            Habit.challenge_id == test_challenge.id,
+            Habit.is_active == True
+        ).count()
+        
+        habits_data = {
+            "habits": [
+                {
+                    "name": "Habit 1",
+                    "type": HabitType.BINARY.value,
+                },
+                {
+                    "name": "Habit 2",
+                    "type": HabitType.BINARY.value,
+                },
+                {
+                    "name": "Habit 3",
+                    "type": HabitType.BINARY.value,
+                },
+            ]
+        }
+
+        response = client.post(
+            f"/api/v1/challenges/{test_challenge.id}/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        
+        # Verify all habits have an order field
+        assert all("order" in h for h in data)
+        # Verify we got 3 habits back
+        assert len(data) == 3
+
+    def test_bulk_create_exceeds_limit(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test that bulk creation fails if total exceeds 10 habits."""
+        # Create 5 existing habits
+        for i in range(5):
+            habit = Habit(
+                id=str(uuid.uuid4()),
+                challenge_id=test_challenge.id,
+                name=f"Existing Habit {i}",
+                type=HabitType.BINARY,
+                order=i,
+                is_active=True,
+            )
+            db_session.add(habit)
+        db_session.commit()
+
+        # Try to add 6 more (would total 11)
+        habits_data = {
+            "habits": [
+                {"name": f"New Habit {i}", "type": HabitType.BINARY.value}
+                for i in range(6)
+            ]
+        }
+
+        response = client.post(
+            f"/api/v1/challenges/{test_challenge.id}/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Maximum of 10 habits" in response.json()["detail"]
+
+    def test_bulk_create_exactly_10_habits(
+        self, client, test_challenge: Challenge, auth_headers: dict
+    ):
+        """Test creating exactly 10 habits at once."""
+        habits_data = {
+            "habits": [
+                {"name": f"Habit {i}", "type": HabitType.BINARY.value}
+                for i in range(10)
+            ]
+        }
+
+        response = client.post(
+            f"/api/v1/challenges/{test_challenge.id}/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert len(data) == 10
+
+    def test_bulk_create_empty_list(
+        self, client, test_challenge: Challenge, auth_headers: dict
+    ):
+        """Test that empty habits list is rejected."""
+        habits_data = {"habits": []}
+
+        response = client.post(
+            f"/api/v1/challenges/{test_challenge.id}/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_bulk_create_more_than_10_in_request(
+        self, client, test_challenge: Challenge, auth_headers: dict
+    ):
+        """Test that more than 10 habits in single request is rejected."""
+        habits_data = {
+            "habits": [
+                {"name": f"Habit {i}", "type": HabitType.BINARY.value}
+                for i in range(11)
+            ]
+        }
+
+        response = client.post(
+            f"/api/v1/challenges/{test_challenge.id}/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_bulk_create_challenge_not_found(self, client, auth_headers: dict):
+        """Test bulk creating habits for non-existent challenge."""
+        habits_data = {
+            "habits": [
+                {"name": "Test Habit", "type": HabitType.BINARY.value}
+            ]
+        }
+
+        response = client.post(
+            "/api/v1/challenges/nonexistent-id/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_bulk_create_mixed_types(
+        self, client, test_challenge: Challenge, auth_headers: dict
+    ):
+        """Test bulk creating mix of binary and counted habits."""
+        habits_data = {
+            "habits": [
+                {
+                    "name": "Meditate",
+                    "type": HabitType.BINARY.value,
+                    "preferred_time": "morning",
+                },
+                {
+                    "name": "Pushups",
+                    "type": HabitType.COUNTED.value,
+                    "target_count": 50,
+                    "preferred_time": "morning",
+                },
+                {
+                    "name": "No Coffee",
+                    "type": HabitType.BINARY.value,
+                    "preferred_time": "all_day",
+                },
+                {
+                    "name": "Drink Water",
+                    "type": HabitType.COUNTED.value,
+                    "target_count": 8,
+                    "preferred_time": "all_day",
+                },
+            ]
+        }
+
+        response = client.post(
+            f"/api/v1/challenges/{test_challenge.id}/habits/bulk",
+            headers=auth_headers,
+            json=habits_data,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert len(data) == 4
+        
+        # Verify binary habits
+        binary_habits = [h for h in data if h["type"] == HabitType.BINARY.value]
+        assert len(binary_habits) == 2
+        
+        # Verify counted habits
+        counted_habits = [h for h in data if h["type"] == HabitType.COUNTED.value]
+        assert len(counted_habits) == 2
+        assert all(h["target_count"] is not None for h in counted_habits)

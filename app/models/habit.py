@@ -26,6 +26,7 @@ class Habit(Base):
         preferred_time: Preferred time of day (morning, afternoon, evening)
         order: Display order within the challenge
         is_active: Whether habit is currently active (for archival)
+        template_id: Optional reference to template used to create this habit
         created_at: Timestamp when habit was created
         updated_at: Timestamp when habit was last updated
         challenge: Relationship to parent challenge
@@ -41,6 +42,7 @@ class Habit(Base):
     preferred_time = Column(String, nullable=True)  # "morning", "afternoon", "evening"
     order = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    template_id = Column(String, nullable=True)  # Reference to template if created from one
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

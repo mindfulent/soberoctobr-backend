@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import settings
-from app.api import auth, users, challenges, habits, entries
+from app.api import auth, users, challenges, habits, entries, habit_templates
 
 # Configure logging
 logging.basicConfig(
@@ -158,6 +158,7 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(challenges.router, prefix="/api/v1/challenges", tags=["challenges"])
 app.include_router(habits.router, prefix="/api/v1", tags=["habits"])
 app.include_router(entries.router, prefix="/api/v1", tags=["entries"])
+app.include_router(habit_templates.router, prefix="/api/v1", tags=["habit-templates"])
 
 
 if __name__ == "__main__":

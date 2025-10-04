@@ -305,17 +305,18 @@ async def get_challenge_progress(
         
         check_date += timedelta(days=1)
     
-    # Current streak is the streak leading up to today
-    check_date = today
+    # Current streak is the streak of completed days leading up to (but not including) today
+    # We start from yesterday because today might still be in progress
+    check_date = today - timedelta(days=1)
     while check_date >= start_date:
         day_entries = entries_by_date.get(check_date, [])
         completed_count = sum(1 for e in day_entries if e.completed)
-        
+
         if completed_count == len(habits):
             current_streak += 1
         else:
             break
-        
+
         check_date -= timedelta(days=1)
     
     # Get last 7 days progress

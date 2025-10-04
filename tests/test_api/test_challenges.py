@@ -430,15 +430,21 @@ class TestGetChallengeProgress:
 
         today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # Create perfect streak of 3 days ending today
-        for i in range(3):
+        # Create perfect streak of 3 days ending YESTERDAY (not including today)
+        # This tests that current streak only counts completed days
+        for i in range(1, 4):  # 3 days ago, 2 days ago, yesterday
             entry_date = today - timedelta(days=i)
             entry1 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit1.id, date=entry_date, completed=True)
             entry2 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit2.id, date=entry_date, completed=True)
             db_session.add_all([entry1, entry2])
 
+        # Today is partially complete (should not affect current streak)
+        entry1 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit1.id, date=today, completed=True)
+        entry2 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit2.id, date=today, completed=False)
+        db_session.add_all([entry1, entry2])
+
         # Create imperfect day 4 days ago (only one habit completed)
-        imperfect_date = today - timedelta(days=3)
+        imperfect_date = today - timedelta(days=4)
         entry1 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit1.id, date=imperfect_date, completed=True)
         entry2 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit2.id, date=imperfect_date, completed=False)
         db_session.add_all([entry1, entry2])
@@ -451,7 +457,8 @@ class TestGetChallengeProgress:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        # Current streak should be 3 (last 3 perfect days)
+        # Current streak should be 3 (last 3 perfect days ending yesterday)
+        # Today being partial should not break the streak
         assert data["currentStreak"] == 3
         # Longest streak should be at least 3
         assert data["longestStreak"] >= 3

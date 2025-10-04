@@ -97,12 +97,28 @@ async def health_check():
         dict: Application health status
     """
     import os
-    return {
+    
+    # Basic health status
+    health_status = {
         "status": "healthy",
         "version": "0.1.0",
         "environment": settings.ENVIRONMENT,
         "port": os.getenv("PORT", "8080")
     }
+    
+    # Try to check database connection (non-blocking)
+    try:
+        from app.core.database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        health_status["database"] = "connected"
+    except Exception as e:
+        logger.warning(f"Database check failed in health endpoint: {e}")
+        health_status["database"] = "disconnected"
+        health_status["database_error"] = str(e)[:100]  # Limit error message length
+    
+    return health_status
 
 
 @app.get("/ping")

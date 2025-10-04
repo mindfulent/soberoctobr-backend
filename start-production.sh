@@ -67,15 +67,22 @@ echo ""
 
 # Run database migrations (with timeout and better error handling)
 echo "Running database migrations..."
-timeout 30 alembic upgrade head 2>&1 | tee /tmp/migration.log || {
+if timeout 45 alembic upgrade head 2>&1 | tee /tmp/migration.log; then
+    echo "✓ Migrations completed successfully"
+else
     EXIT_CODE=$?
     if [ $EXIT_CODE -eq 124 ]; then
-        echo "WARNING: Migration timed out after 30 seconds"
+        echo "⚠ WARNING: Migration timed out after 45 seconds"
     else
-        echo "WARNING: Migration failed with exit code $EXIT_CODE"
+        echo "⚠ WARNING: Migration failed with exit code $EXIT_CODE"
     fi
-    echo "App will start anyway - check logs for details"
-}
+    echo "App will start anyway - check logs for database issues"
+    # Print last few lines of migration log if available
+    if [ -f /tmp/migration.log ]; then
+        echo "Last migration output:"
+        tail -n 10 /tmp/migration.log
+    fi
+fi
 echo ""
 
 # Start the application

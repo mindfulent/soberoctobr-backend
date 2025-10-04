@@ -35,6 +35,27 @@ class Settings(BaseSettings):
         default="postgresql://username:password@localhost:5432/soberoctobr_db",
         description="PostgreSQL database connection string"
     )
+    
+    @field_validator('DATABASE_URL', mode='after')
+    @classmethod
+    def validate_database_url(cls, v):
+        """
+        Validate and potentially transform DATABASE_URL.
+        DigitalOcean App Platform provides DATABASE_URL, but may need adjustments.
+        """
+        if not v:
+            raise ValueError("DATABASE_URL must be set")
+        
+        # Log DATABASE URL format (without exposing credentials)
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Handle DigitalOcean's postgres:// vs postgresql:// scheme
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql://", 1)
+            logger.info("Converted postgres:// to postgresql:// in DATABASE_URL")
+        
+        return v
 
     # Security
     SECRET_KEY: str = Field(
@@ -82,11 +103,11 @@ class Settings(BaseSettings):
             "http://localhost:3000",
             "http://localhost:5173",
             "http://localhost:8080",
-            "http://localhost:8082",
+            "http://localhost:8081",
             "http://127.0.0.1:3000",
             "http://127.0.0.1:5173",
             "http://127.0.0.1:8080",
-            "http://127.0.0.1:8082"
+            "http://127.0.0.1:8081"
         ],
         description="List of allowed CORS origins"
     )

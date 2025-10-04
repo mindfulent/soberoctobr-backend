@@ -14,12 +14,21 @@ if settings.DATABASE_URL.startswith("sqlite"):
         connect_args={"check_same_thread": False},
     )
 else:
+    # Use smaller pool for production (especially on small instances)
+    pool_size = 2 if settings.ENVIRONMENT == "production" else 10
+    max_overflow = 3 if settings.ENVIRONMENT == "production" else 20
+    
     engine = create_engine(
         settings.DATABASE_URL,
         echo=settings.DEBUG,
         pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_recycle=300,  # Recycle connections every 5 minutes
+        connect_args={
+            "connect_timeout": 10,
+            "options": "-c statement_timeout=30000"  # 30 second statement timeout
+        }
     )
 
 # Create SessionLocal class

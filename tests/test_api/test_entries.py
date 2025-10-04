@@ -132,7 +132,8 @@ class TestCreateOrUpdateEntry:
         db_session: Session,
     ):
         """Test updating an existing entry (upsert behavior)."""
-        entry_date = datetime(2024, 10, 15)
+        # Use today's date to avoid retroactive logging restrictions
+        entry_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
         # Create initial entry
         entry = DailyEntry(
@@ -415,8 +416,8 @@ class TestDateNormalization:
         db_session: Session,
     ):
         """Test that entry dates are normalized to midnight UTC."""
-        # Create entry with specific time
-        entry_date = datetime(2024, 10, 10, 15, 30, 45)
+        # Create entry with specific time (use today to avoid retroactive logging restrictions)
+        entry_date = datetime.utcnow().replace(hour=15, minute=30, second=45, microsecond=0)
 
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",

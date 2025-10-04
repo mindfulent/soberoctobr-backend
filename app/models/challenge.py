@@ -12,6 +12,7 @@ class ChallengeStatus(str, enum.Enum):
     ACTIVE = "active"
     COMPLETED = "completed"
     ABANDONED = "abandoned"
+    PAUSED = "paused"
 
 
 class Challenge(Base):

@@ -12,21 +12,22 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
 # Set test environment before importing app modules
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+# Use file::memory:?cache=shared to ensure all connections share the same in-memory database
+os.environ["DATABASE_URL"] = "sqlite:///file::memory:?cache=shared&uri=true"
 os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 
+# Import Base first, then all models to register them with Base.metadata
+from app.core.database import Base, get_db
 from app.models.user import User
 from app.models.challenge import Challenge, ChallengeStatus
 from app.models.habit import Habit, HabitType
 from app.models.daily_entry import DailyEntry
 from app.core.security import create_access_token
-
-# Use the Base from the app
-from app.core.database import Base, get_db
 from app.main import app
 
 # Test database URL (use in-memory SQLite for speed)
-TEST_DATABASE_URL = "sqlite:///:memory:"
+# Use file::memory:?cache=shared to ensure all connections share the same in-memory database
+TEST_DATABASE_URL = "sqlite:///file::memory:?cache=shared&uri=true"
 
 
 @pytest.fixture(scope="function")
@@ -34,7 +35,7 @@ def db_engine():
     """Create a test database engine."""
     engine = create_engine(
         TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "uri": True},
         echo=False,
     )
     Base.metadata.create_all(bind=engine)
@@ -55,11 +56,15 @@ def db_session(db_engine) -> Generator[Session, None, None]:
 
 
 @pytest.fixture(scope="function")
-def client(db_session: Session) -> Generator[TestClient, None, None]:
+def client(db_engine, db_session: Session) -> Generator[TestClient, None, None]:
     """Create a test client with database dependency override."""
     def override_get_db():
         try:
             yield db_session
+            db_session.commit()
+        except Exception:
+            db_session.rollback()
+            raise
         finally:
             pass
 

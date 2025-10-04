@@ -195,8 +195,10 @@ class TestTokenSecurity:
 
     def test_tokens_are_unique(self):
         """Test that each token generation creates unique tokens."""
+        import time
         user_id = "test-user-123"
         token1 = create_access_token(data={"sub": user_id})
+        time.sleep(1.1)  # Sleep to ensure different exp times (JWT rounds to seconds)
         token2 = create_access_token(data={"sub": user_id})
 
         # Tokens should be different due to different exp times

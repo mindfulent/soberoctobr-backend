@@ -5,10 +5,57 @@ This module creates and configures the FastAPI application instance,
 including middleware, CORS settings, and route registration.
 """
 
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.config import settings
 from app.api import auth, users, challenges, habits, entries
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifecycle events for the FastAPI application.
+    Handles startup and shutdown events.
+    """
+    # Startup
+    logger.info("=" * 50)
+    logger.info("Application Startup")
+    logger.info("=" * 50)
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Debug Mode: {settings.DEBUG}")
+    logger.info(f"Database URL: {settings.DATABASE_URL[:30]}...")
+    logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
+    logger.info(f"Frontend URL: {settings.FRONTEND_URL}")
+    logger.info(f"API Base URL: {settings.API_BASE_URL}")
+    logger.info("=" * 50)
+    
+    # Test database connection
+    try:
+        from app.core.database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("✓ Database connection verified")
+    except Exception as e:
+        logger.error(f"✗ Database connection failed: {e}")
+        raise
+    
+    logger.info("✓ Application startup complete")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Application shutdown")
+
 
 # Create FastAPI application instance
 app = FastAPI(
@@ -17,6 +64,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Configure CORS

@@ -5,9 +5,10 @@ This module handles environment variable loading and application
 configuration using Pydantic settings.
 """
 
-from typing import List
+from typing import List, Union
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
+import json
 
 
 class Settings(BaseSettings):
@@ -75,8 +76,8 @@ class Settings(BaseSettings):
         description="Frontend application URL"
     )
 
-    # CORS
-    CORS_ORIGINS: List[str] = Field(
+    # CORS - can be a JSON string or comma-separated string
+    CORS_ORIGINS: Union[str, List[str]] = Field(
         default=[
             "http://localhost:3000",
             "http://localhost:5173",
@@ -105,6 +106,31 @@ class Settings(BaseSettings):
         default="INFO",
         description="Logging level"
     )
+    
+    @field_validator('CORS_ORIGINS', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """
+        Parse CORS_ORIGINS from various input formats.
+        
+        Handles:
+        - List of strings (already parsed)
+        - JSON array string: '["http://example.com", "http://example2.com"]'
+        - Comma-separated string: 'http://example.com,http://example2.com'
+        """
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            # Try to parse as JSON first
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+            # Fall back to comma-separated
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
     
     class Config:
         """Pydantic configuration."""

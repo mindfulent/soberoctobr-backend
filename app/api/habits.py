@@ -21,7 +21,10 @@ async def get_challenge_habits(
     db: Session = Depends(get_db)
 ):
     """
-    Get all habits for a specific challenge.
+    Get all active habits for a specific challenge.
+    
+    By default, only returns active habits (is_active=True).
+    Archived habits are excluded to prevent them from appearing in the daily view.
 
     Args:
         challenge_id: Challenge ID
@@ -29,7 +32,7 @@ async def get_challenge_habits(
         db: Database session
 
     Returns:
-        List[HabitResponse]: List of habits in the challenge
+        List[HabitResponse]: List of active habits in the challenge
 
     Raises:
         HTTPException: If challenge not found or not owned by user
@@ -46,8 +49,10 @@ async def get_challenge_habits(
             detail="Challenge not found"
         )
 
+    # Only return active habits (filter out archived habits)
     habits = db.query(Habit).filter(
-        Habit.challenge_id == challenge_id
+        Habit.challenge_id == challenge_id,
+        Habit.is_active == True
     ).order_by(Habit.order).all()
 
     return habits

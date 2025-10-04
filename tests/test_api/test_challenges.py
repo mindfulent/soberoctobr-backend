@@ -1,12 +1,15 @@
 """Challenge API endpoint tests."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import uuid
 
 import pytest
 from fastapi import status
 from sqlalchemy.orm import Session
 
 from app.models.challenge import Challenge, ChallengeStatus
+from app.models.habit import Habit
+from app.models.daily_entry import DailyEntry
 from app.models.user import User
 
 
@@ -282,3 +285,353 @@ class TestDeleteChallenge:
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestGetChallengeProgress:
+    """Tests for GET /api/v1/challenges/{challenge_id}/progress endpoint."""
+
+    def test_get_progress_success_with_data(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test successfully getting progress with habits and entries."""
+        # Create habits
+        habit1 = Habit(
+            id="habit-1",
+            challenge_id=test_challenge.id,
+            name="No Alcohol",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        habit2 = Habit(
+            id="habit-2",
+            challenge_id=test_challenge.id,
+            name="Exercise",
+            type="binary",
+            is_active=True,
+            order=2
+        )
+        db_session.add_all([habit1, habit2])
+        db_session.commit()
+
+        # Create entries for the last 3 days
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        for i in range(3):
+            entry_date = today - timedelta(days=i)
+            # Both habits completed
+            entry1 = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit1.id,
+                date=entry_date,
+                completed=True
+            )
+            entry2 = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit2.id,
+                date=entry_date,
+                completed=True
+            )
+            db_session.add_all([entry1, entry2])
+        db_session.commit()
+
+        response = client.get(
+            f"/api/v1/challenges/{test_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["challenge_id"] == test_challenge.id
+        assert data["total_days"] > 0  # Should be around 30-31 days
+        assert data["total_habits_completed"] > 0
+        assert data["overall_completion_percentage"] > 0
+        assert data["current_streak"] >= 0
+        assert data["longest_streak"] >= 0
+        assert len(data["habit_progress"]) == 2
+        assert isinstance(data["last_7_days"], list)
+
+    def test_get_progress_no_habits(
+        self, client, test_challenge: Challenge, auth_headers: dict
+    ):
+        """Test getting progress when challenge has no habits."""
+        response = client.get(
+            f"/api/v1/challenges/{test_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["challenge_id"] == test_challenge.id
+        assert data["current_day"] == 0
+        assert data["total_days"] == 30
+        assert data["days_elapsed"] == 0
+        assert data["total_habits_completed"] == 0
+        assert data["total_possible_habits"] == 0
+        assert data["overall_completion_percentage"] == 0
+        assert data["current_streak"] == 0
+        assert data["longest_streak"] == 0
+        assert data["last_7_days"] == []
+        assert data["habit_progress"] == []
+
+    def test_get_progress_challenge_not_found(self, client, auth_headers: dict):
+        """Test getting progress for non-existent challenge."""
+        response = client.get(
+            "/api/v1/challenges/nonexistent-id/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_progress_other_user_challenge(
+        self,
+        client,
+        other_user: User,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        """Test that users cannot access other users' challenge progress."""
+        other_challenge = Challenge(
+            id="other-challenge-id",
+            user_id=other_user.id,
+            start_date=datetime(2024, 10, 1),
+            end_date=datetime(2024, 10, 31),
+            status=ChallengeStatus.ACTIVE,
+        )
+        db_session.add(other_challenge)
+        db_session.commit()
+
+        response = client.get(
+            f"/api/v1/challenges/{other_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_get_progress_streak_calculation(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test streak calculation with perfect and imperfect days."""
+        # Create habits
+        habit1 = Habit(
+            id="habit-1",
+            challenge_id=test_challenge.id,
+            name="Habit 1",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        habit2 = Habit(
+            id="habit-2",
+            challenge_id=test_challenge.id,
+            name="Habit 2",
+            type="binary",
+            is_active=True,
+            order=2
+        )
+        db_session.add_all([habit1, habit2])
+        db_session.commit()
+
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Create perfect streak of 3 days ending today
+        for i in range(3):
+            entry_date = today - timedelta(days=i)
+            entry1 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit1.id, date=entry_date, completed=True)
+            entry2 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit2.id, date=entry_date, completed=True)
+            db_session.add_all([entry1, entry2])
+
+        # Create imperfect day 4 days ago (only one habit completed)
+        imperfect_date = today - timedelta(days=3)
+        entry1 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit1.id, date=imperfect_date, completed=True)
+        entry2 = DailyEntry(id=str(uuid.uuid4()), habit_id=habit2.id, date=imperfect_date, completed=False)
+        db_session.add_all([entry1, entry2])
+
+        db_session.commit()
+
+        response = client.get(
+            f"/api/v1/challenges/{test_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        # Current streak should be 3 (last 3 perfect days)
+        assert data["current_streak"] == 3
+        # Longest streak should be at least 3
+        assert data["longest_streak"] >= 3
+
+    def test_get_progress_last_7_days(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test last 7 days progress calculation."""
+        habit = Habit(
+            id="habit-1",
+            challenge_id=test_challenge.id,
+            name="Test Habit",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Create entries for last 5 days
+        for i in range(5):
+            entry_date = today - timedelta(days=i)
+            entry = DailyEntry(
+                id=str(uuid.uuid4()),
+                habit_id=habit.id,
+                date=entry_date,
+                completed=True
+            )
+            db_session.add(entry)
+        db_session.commit()
+
+        response = client.get(
+            f"/api/v1/challenges/{test_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        # Should have entries for the days (may be less than 7 if challenge started recently)
+        assert len(data["last_7_days"]) >= 0
+        # Each day entry should have required fields
+        for day in data["last_7_days"]:
+            assert "date" in day
+            assert "completed_count" in day
+            assert "total_count" in day
+            assert "is_perfect" in day
+            assert "completion_percentage" in day
+
+    def test_get_progress_habit_progress_calculation(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test per-habit progress calculation."""
+        # Create two habits with different completion rates
+        habit1 = Habit(
+            id="habit-1",
+            challenge_id=test_challenge.id,
+            name="Consistent Habit",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        habit2 = Habit(
+            id="habit-2",
+            challenge_id=test_challenge.id,
+            name="Inconsistent Habit",
+            type="binary",
+            is_active=True,
+            order=2
+        )
+        db_session.add_all([habit1, habit2])
+        db_session.commit()
+
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Habit 1: 5 out of 5 days completed
+        for i in range(5):
+            entry_date = today - timedelta(days=i)
+            entry = DailyEntry(id=str(uuid.uuid4()), habit_id=habit1.id, date=entry_date, completed=True)
+            db_session.add(entry)
+
+        # Habit 2: 2 out of 5 days completed
+        for i in range(5):
+            entry_date = today - timedelta(days=i)
+            completed = i < 2  # Only first 2 days completed
+            entry = DailyEntry(id=str(uuid.uuid4()), habit_id=habit2.id, date=entry_date, completed=completed)
+            db_session.add(entry)
+
+        db_session.commit()
+
+        response = client.get(
+            f"/api/v1/challenges/{test_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        habit_progress = data["habit_progress"]
+
+        assert len(habit_progress) == 2
+
+        # Find each habit in the progress
+        habit1_progress = next(h for h in habit_progress if h["habit_id"] == "habit-1")
+        habit2_progress = next(h for h in habit_progress if h["habit_id"] == "habit-2")
+
+        # Verify both have completion data
+        assert habit1_progress["completion_percentage"] >= 0
+        assert habit2_progress["completion_percentage"] >= 0
+        assert habit1_progress["habit_name"] == "Consistent Habit"
+        assert habit2_progress["habit_name"] == "Inconsistent Habit"
+        # Habit 1 has more completions
+        assert habit1_progress["completed_count"] >= habit2_progress["completed_count"]
+
+    def test_get_progress_with_inactive_habits(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test that inactive habits are not included in progress."""
+        active_habit = Habit(
+            id="habit-1",
+            challenge_id=test_challenge.id,
+            name="Active Habit",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        inactive_habit = Habit(
+            id="habit-2",
+            challenge_id=test_challenge.id,
+            name="Inactive Habit",
+            type="binary",
+            is_active=False,
+            order=2
+        )
+        db_session.add_all([active_habit, inactive_habit])
+        db_session.commit()
+
+        response = client.get(
+            f"/api/v1/challenges/{test_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        # Only active habit should be in progress
+        assert len(data["habit_progress"]) == 1
+        assert data["habit_progress"][0]["habit_id"] == "habit-1"
+
+
+class TestNormalizeDateFunction:
+    """Tests for the normalize_date helper function."""
+
+    def test_normalize_date_with_timezone(
+        self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
+    ):
+        """Test that timezone-aware dates are normalized correctly."""
+        # Create a habit with a timezone-aware datetime entry
+        habit = Habit(
+            id="habit-1",
+            challenge_id=test_challenge.id,
+            name="Test Habit",
+            type="binary",
+            is_active=True,
+            order=1
+        )
+        db_session.add(habit)
+        db_session.commit()
+
+        # Create an entry with timezone-aware datetime
+        tz_aware_date = datetime.now(timezone.utc).replace(hour=15, minute=30)
+        entry = DailyEntry(
+            id=str(uuid.uuid4()),
+            habit_id=habit.id,
+            date=tz_aware_date,
+            completed=True
+        )
+        db_session.add(entry)
+        db_session.commit()
+
+        # The progress endpoint should handle this without error
+        response = client.get(
+            f"/api/v1/challenges/{test_challenge.id}/progress", headers=auth_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["challenge_id"] == test_challenge.id

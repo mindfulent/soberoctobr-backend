@@ -396,10 +396,10 @@ class TestBulkCreateHabits:
         habits_data = {
             "habits": [
                 {
-                    "name": "No Alcohol",
+                    "name": "Vitamin D",
                     "type": HabitType.BINARY.value,
-                    "preferred_time": "all_day",
-                    "template_id": "no_alcohol",
+                    "preferred_time": "afternoon",
+                    "template_id": "vitamin_d",
                 },
                 {
                     "name": "Meditate",
@@ -419,7 +419,7 @@ class TestBulkCreateHabits:
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert len(data) == 2
-        assert data[0]["template_id"] == "no_alcohol"
+        assert data[0]["template_id"] == "vitamin_d"
         assert data[1]["template_id"] == "meditate"
 
     def test_bulk_create_auto_order(

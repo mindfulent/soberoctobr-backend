@@ -70,40 +70,58 @@ class HabitTemplate:
 HABIT_TEMPLATES = [
     # Jon's List
     HabitTemplate(
-        id="no_alcohol",
-        name="No Alcohol",
-        description="Stay alcohol-free for the entire challenge",
-        type="binary",
-        preferred_time="all_day",
-        category=HabitCategory.JONS_LIST,
-        icon="🚫🍺"
-    ),
-    HabitTemplate(
-        id="no_sugar",
-        name="No Added Sugar",
-        description="Avoid added sugars and sweeteners",
-        type="binary",
-        preferred_time="all_day",
-        category=HabitCategory.JONS_LIST,
-        icon="🚫🍰"
-    ),
-    HabitTemplate(
-        id="no_caffeine",
-        name="No Caffeine After 2pm",
-        description="Cut off caffeine intake after 2pm",
+        id="vitamin_d",
+        name="Vitamin D",
+        description="Take your daily Vitamin D supplement",
         type="binary",
         preferred_time="afternoon",
         category=HabitCategory.JONS_LIST,
-        icon="☕"
+        icon="☀️"
     ),
     HabitTemplate(
-        id="no_social_media",
-        name="No Social Media",
-        description="Stay off social media platforms",
+        id="fiber_afternoon",
+        name="Fiber",
+        description="Take your afternoon fiber supplement",
+        type="binary",
+        preferred_time="afternoon",
+        category=HabitCategory.JONS_LIST,
+        icon="🌾"
+    ),
+    HabitTemplate(
+        id="fiber_evening",
+        name="Fiber",
+        description="Take your evening fiber supplement",
+        type="binary",
+        preferred_time="evening",
+        category=HabitCategory.JONS_LIST,
+        icon="🌾"
+    ),
+    HabitTemplate(
+        id="fish_oil",
+        name="Fish Oil",
+        description="Take your fish oil supplement",
+        type="binary",
+        preferred_time="evening",
+        category=HabitCategory.JONS_LIST,
+        icon="🐟"
+    ),
+    HabitTemplate(
+        id="bike_gym_walk",
+        name="Bike, Gym or 10k Walk",
+        description="Complete a bike ride, gym session, or 10,000 step walk",
         type="binary",
         preferred_time="all_day",
         category=HabitCategory.JONS_LIST,
-        icon="📱"
+        icon="🚴"
+    ),
+    HabitTemplate(
+        id="fasting_windows",
+        name="Observed Fasting Windows",
+        description="Maintained your fasting schedule for the day",
+        type="binary",
+        preferred_time="all_day",
+        category=HabitCategory.JONS_LIST,
+        icon="⏱️"
     ),
     
     # Physical Health

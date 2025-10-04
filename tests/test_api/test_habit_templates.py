@@ -52,7 +52,8 @@ class TestHabitTemplates:
         
         # Check for specific templates
         template_ids = [t["id"] for t in templates]
-        assert "no_alcohol" in template_ids
+        assert "vitamin_d" in template_ids
+        assert "fish_oil" in template_ids
 
     def test_list_templates_by_category_physical_health(self):
         """Test filtering templates by physical_health category."""
@@ -122,15 +123,15 @@ class TestHabitTemplates:
 
     def test_get_specific_template_by_id(self):
         """Test retrieving a specific template by ID."""
-        response = client.get("/api/v1/habit-templates/no_alcohol")
+        response = client.get("/api/v1/habit-templates/vitamin_d")
         
         assert response.status_code == 200
         template = response.json()
         
-        assert template["id"] == "no_alcohol"
-        assert template["name"] == "No Alcohol"
+        assert template["id"] == "vitamin_d"
+        assert template["name"] == "Vitamin D"
         assert template["type"] == "binary"
-        assert template["preferred_time"] == "all_day"
+        assert template["preferred_time"] == "afternoon"
         assert template["category"] == "jons_list"
         assert "icon" in template
 
@@ -203,7 +204,8 @@ class TestHabitTemplates:
         
         # Core templates that should exist
         expected_templates = [
-            "no_alcohol",
+            "vitamin_d",
+            "fish_oil",
             "meditate",
             "exercise",
             "pushups",

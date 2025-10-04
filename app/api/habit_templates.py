@@ -37,14 +37,14 @@ async def list_habit_templates(
     Example Response:
         [
             {
-                "id": "no_alcohol",
-                "name": "No Alcohol",
-                "description": "Stay alcohol-free for the entire challenge",
+                "id": "vitamin_d",
+                "name": "Vitamin D",
+                "description": "Take your daily Vitamin D supplement",
                 "type": "binary",
-                "preferred_time": "all_day",
+                "preferred_time": "afternoon",
                 "target_count": null,
                 "category": "jons_list",
-                "icon": "🚫🍺"
+                "icon": "☀️"
             },
             ...
         ]

@@ -91,9 +91,9 @@ async def create_or_update_entry(
         DailyEntryResponse: Created or updated entry
 
     Raises:
-        HTTPException: If habit not found, not owned by user, or retroactive logging window exceeded
+        HTTPException: If habit not found, not owned by user, date outside challenge period, or future date
     """
-    # Verify habit ownership
+    # Verify habit ownership and get associated challenge
     habit = db.query(Habit).join(Challenge).filter(
         Habit.id == habit_id,
         Challenge.user_id == current_user.id
@@ -105,9 +105,16 @@ async def create_or_update_entry(
             detail="Habit not found"
         )
 
+    # Get the challenge for date validation
+    challenge = db.query(Challenge).filter(
+        Challenge.id == habit.challenge_id
+    ).first()
+
     # Normalize date to start of day
     entry_date = normalize_date(entry_data.date)
     today = normalize_date(datetime.utcnow())
+    challenge_start = normalize_date(challenge.start_date)
+    challenge_end = normalize_date(challenge.end_date)
 
     # Check if date is in the future
     if entry_date > today:
@@ -116,11 +123,17 @@ async def create_or_update_entry(
             detail="Cannot create entries for future dates"
         )
 
-    # Check retroactive logging window (48 hours)
-    if entry_date < today - timedelta(days=2):
+    # Check if date is within challenge period
+    if entry_date < challenge_start:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot create entries more than 48 hours in the past"
+            detail="Cannot create entries before the challenge start date"
+        )
+    
+    if entry_date > challenge_end:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot create entries after the challenge end date"
         )
 
     # Check if entry already exists

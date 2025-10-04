@@ -1,6 +1,6 @@
 """Daily entry API endpoint tests."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -160,18 +160,12 @@ class TestCreateOrUpdateEntry:
         assert data["completed"] is True
         assert data["id"] == "test-entry-id"  # Same entry, updated
 
-    @patch("app.api.entries.datetime")
-    def test_retroactive_logging_within_window(
-        self, mock_datetime, client, test_binary_habit: Habit, auth_headers: dict
+    def test_create_entry_within_challenge_period(
+        self, client, test_binary_habit: Habit, test_challenge: Challenge, auth_headers: dict
     ):
-        """Test creating entry within 48-hour retroactive window."""
-        # Mock current time
-        now = datetime(2024, 10, 15, 12, 0, 0)
-        mock_datetime.utcnow.return_value = now
-        mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
-
-        # Entry from 47 hours ago (within window)
-        entry_date = now - timedelta(hours=47)
+        """Test creating entry within challenge period is allowed."""
+        # Entry within the challenge period (Oct 1-31)
+        entry_date = datetime(2024, 10, 5)
 
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",
@@ -184,18 +178,12 @@ class TestCreateOrUpdateEntry:
 
         assert response.status_code == status.HTTP_200_OK
 
-    @patch("app.api.entries.datetime")
-    def test_retroactive_logging_exceeds_window(
-        self, mock_datetime, client, test_binary_habit: Habit, auth_headers: dict
+    def test_create_entry_before_challenge_start(
+        self, client, test_binary_habit: Habit, test_challenge: Challenge, auth_headers: dict
     ):
-        """Test that entries beyond 48-hour window are rejected."""
-        # Mock current time
-        now = datetime(2024, 10, 15, 12, 0, 0)
-        mock_datetime.utcnow.return_value = now
-        mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
-
-        # Entry from 73 hours ago (beyond window)
-        entry_date = now - timedelta(hours=73)
+        """Test that entries before challenge start date are rejected."""
+        # Entry before challenge start (challenge starts Oct 1)
+        entry_date = datetime(2024, 9, 30)
 
         response = client.post(
             f"/api/v1/habits/{test_binary_habit.id}/entries",
@@ -207,7 +195,26 @@ class TestCreateOrUpdateEntry:
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "48 hours" in response.json()["detail"]
+        assert "before the challenge start date" in response.json()["detail"]
+
+    def test_create_entry_after_challenge_end(
+        self, client, test_binary_habit: Habit, test_challenge: Challenge, auth_headers: dict
+    ):
+        """Test that entries after challenge end date are rejected."""
+        # Entry after challenge end (challenge ends Oct 31)
+        entry_date = datetime(2024, 11, 1)
+
+        response = client.post(
+            f"/api/v1/habits/{test_binary_habit.id}/entries",
+            headers=auth_headers,
+            json={
+                "date": entry_date.isoformat(),
+                "completed": True,
+            },
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "after the challenge end date" in response.json()["detail"]
 
     def test_create_entry_future_date(
         self, client, test_binary_habit: Habit, auth_headers: dict
@@ -437,3 +444,34 @@ class TestDateNormalization:
         assert returned_date.minute == 0
         assert returned_date.second == 0
         assert returned_date.microsecond == 0
+
+    def test_date_with_timezone_normalized(
+        self,
+        client,
+        test_binary_habit: Habit,
+        auth_headers: dict,
+        db_session: Session,
+    ):
+        """Test that timezone-aware dates are normalized correctly."""
+        # Create entry with timezone-aware datetime (use today to avoid retroactive logging restrictions)
+        entry_date = datetime.now(timezone.utc).replace(hour=15, minute=30, second=45, microsecond=0)
+
+        response = client.post(
+            f"/api/v1/habits/{test_binary_habit.id}/entries",
+            headers=auth_headers,
+            json={
+                "date": entry_date.isoformat(),
+                "completed": True,
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # Verify date was normalized and timezone was removed
+        returned_date = datetime.fromisoformat(data["date"])
+        assert returned_date.hour == 0
+        assert returned_date.minute == 0
+        assert returned_date.second == 0
+        assert returned_date.microsecond == 0
+        assert returned_date.tzinfo is None

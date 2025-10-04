@@ -31,6 +31,7 @@ def to_camel(string: str) -> str:
 base_response_config = ConfigDict(
     alias_generator=to_camel,
     populate_by_name=True,  # Accept both snake_case and camelCase on input
-    from_attributes=True
+    from_attributes=True,
+    serialize_by_alias=True  # Use camelCase aliases when serializing to JSON
 )
 

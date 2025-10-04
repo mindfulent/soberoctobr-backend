@@ -6,8 +6,8 @@ services:
       repo: mindfulent/soberoctobr-backend
       branch: master
       deploy_on_push: true
-    build_command: pip install -r requirements.txt && alembic upgrade head
-    run_command: uvicorn app.main:app --host 0.0.0.0 --port 8080
+    build_command: pip install -r requirements.txt
+    run_command: bash start-production.sh
     http_port: 8080
     instance_count: 1
     instance_size_slug: basic-xxs

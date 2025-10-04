@@ -496,10 +496,10 @@ class TestGetChallengeProgress:
         # Each day entry should have required fields
         for day in data["last7Days"]:
             assert "date" in day
-            assert "completed_count" in day
-            assert "total_count" in day
-            assert "is_perfect" in day
-            assert "completion_percentage" in day
+            assert "completedCount" in day
+            assert "totalCount" in day
+            assert "isPerfect" in day
+            assert "completionPercentage" in day
 
     def test_get_progress_habit_progress_calculation(
         self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
@@ -553,16 +553,16 @@ class TestGetChallengeProgress:
         assert len(habit_progress) == 2
 
         # Find each habit in the progress
-        habit1_progress = next(h for h in habit_progress if h["habit_id"] == "habit-1")
-        habit2_progress = next(h for h in habit_progress if h["habit_id"] == "habit-2")
+        habit1_progress = next(h for h in habit_progress if h["habitId"] == "habit-1")
+        habit2_progress = next(h for h in habit_progress if h["habitId"] == "habit-2")
 
         # Verify both have completion data
-        assert habit1_progress["completion_percentage"] >= 0
-        assert habit2_progress["completion_percentage"] >= 0
-        assert habit1_progress["habit_name"] == "Consistent Habit"
-        assert habit2_progress["habit_name"] == "Inconsistent Habit"
+        assert habit1_progress["completionPercentage"] >= 0
+        assert habit2_progress["completionPercentage"] >= 0
+        assert habit1_progress["habitName"] == "Consistent Habit"
+        assert habit2_progress["habitName"] == "Inconsistent Habit"
         # Habit 1 has more completions
-        assert habit1_progress["completed_count"] >= habit2_progress["completed_count"]
+        assert habit1_progress["completedCount"] >= habit2_progress["completedCount"]
 
     def test_get_progress_with_inactive_habits(
         self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
@@ -595,7 +595,7 @@ class TestGetChallengeProgress:
         data = response.json()
         # Only active habit should be in progress
         assert len(data["habitProgress"]) == 1
-        assert data["habitProgress"][0]["habit_id"] == "habit-1"
+        assert data["habitProgress"][0]["habitId"] == "habit-1"
 
 
 class TestNormalizeDateFunction:
@@ -751,9 +751,9 @@ class TestNormalizeDateFunction:
         data = response.json()
         assert len(data["habitProgress"]) == 2
 
-        # Find each habit in the progress (using snake_case for nested fields)
-        habit1_progress = next(h for h in data["habitProgress"] if h["habit_id"] == "habit-1")
-        habit2_progress = next(h for h in data["habitProgress"] if h["habit_id"] == "habit-2")
+        # Find each habit in the progress (using camelCase for JSON response)
+        habit1_progress = next(h for h in data["habitProgress"] if h["habitId"] == "habit-1")
+        habit2_progress = next(h for h in data["habitProgress"] if h["habitId"] == "habit-2")
 
         # Habit with valid template should have icon
         assert habit1_progress["icon"] == "☀️"
@@ -996,10 +996,10 @@ class TestNormalizeDateFunction:
 
         # Verify completion percentage
         habit_progress = data["habitProgress"][0]
-        assert habit_progress["completed_count"] == 4
+        assert habit_progress["completedCount"] == 4
 
         # BUG: With current implementation using days_elapsed (3), this would be:
         # 4 / 3 = 133%
-        assert habit_progress["total_days"] == 4, "Should count current_day (4), not days_elapsed (3)"
-        assert habit_progress["completion_percentage"] <= 100, "Should never exceed 100%"
-        assert habit_progress["completion_percentage"] == 100, "Should be 100% since all 4 days completed"
+        assert habit_progress["totalDays"] == 4, "Should count current_day (4), not days_elapsed (3)"
+        assert habit_progress["completionPercentage"] <= 100, "Should never exceed 100%"
+        assert habit_progress["completionPercentage"] == 100, "Should be 100% since all 4 days completed"

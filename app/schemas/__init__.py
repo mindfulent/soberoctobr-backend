@@ -1,6 +1,6 @@
 """Pydantic schemas package."""
 
-from app.schemas.base import base_response_config, to_camel
+from app.schemas.base import base_response_config
 from app.schemas.user import UserResponse, UserCreate
 from app.schemas.challenge import ChallengeCreate, ChallengeResponse, ChallengeUpdate
 from app.schemas.habit import HabitCreate, HabitResponse, HabitUpdate

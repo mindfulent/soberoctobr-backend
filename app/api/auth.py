@@ -2,6 +2,7 @@
 
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import create_access_token, get_current_user
@@ -9,6 +10,7 @@ from app.core.oauth import exchange_code_for_token, get_google_user_info
 from app.models.user import User
 from app.schemas.auth import Token, GoogleAuthRequest
 from app.schemas.user import UserResponse
+from app.config import settings
 
 router = APIRouter()
 
@@ -91,3 +93,74 @@ async def logout():
         This endpoint exists for consistency and future server-side token blacklisting.
     """
     return {"message": "Successfully logged out"}
+
+
+@router.get("/google/callback")
+async def google_callback(
+    code: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Google OAuth callback endpoint.
+    
+    This endpoint is called by Google after user authorizes the app.
+    It exchanges the authorization code for an access token, gets user info,
+    creates/updates the user, generates a JWT, and redirects to frontend with token.
+    
+    Args:
+        code: Authorization code from Google OAuth
+        db: Database session
+        
+    Returns:
+        RedirectResponse: Redirects to frontend with JWT token in query params
+        
+    Raises:
+        HTTPException: If authentication fails
+    """
+    try:
+        # The redirect_uri must match what was sent to Google OAuth
+        # This is the backend callback URL (where we are now)
+        redirect_uri = "http://localhost:8000/api/auth/google/callback"
+        
+        # Exchange authorization code for access token
+        token_data = await exchange_code_for_token(code, redirect_uri)
+        
+        # Get user info from Google
+        user_info = await get_google_user_info(token_data["access_token"])
+        
+        # Check if user exists
+        user = db.query(User).filter(User.google_id == user_info["id"]).first()
+        
+        if not user:
+            # Create new user
+            user = User(
+                id=str(uuid.uuid4()),
+                email=user_info["email"],
+                name=user_info["name"],
+                picture=user_info.get("picture"),
+                google_id=user_info["id"]
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
+        # Create JWT token
+        access_token = create_access_token(data={"sub": user.id})
+        
+        # Redirect to frontend with token
+        # Frontend will extract token from URL and store it
+        frontend_callback_url = f"{settings.FRONTEND_URL}/auth/callback?token={access_token}"
+        return RedirectResponse(url=frontend_callback_url)
+        
+    except HTTPException as e:
+        # Log the error and redirect to frontend with error
+        print(f"HTTPException during Google OAuth callback: {str(e)}")
+        error_url = f"{settings.FRONTEND_URL}/?error=auth_failed&detail=http_exception"
+        return RedirectResponse(url=error_url)
+    except Exception as e:
+        # Log the error and redirect with error message
+        print(f"Error during Google OAuth callback: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        error_url = f"{settings.FRONTEND_URL}/?error=auth_failed&detail=exception"
+        return RedirectResponse(url=error_url)

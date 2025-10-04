@@ -153,10 +153,21 @@ async def google_callback(
         # Use state parameter as frontend URL if provided, otherwise use configured FRONTEND_URL
         frontend_url = state if state else settings.FRONTEND_URL
         
-        # Validate that frontend_url is a localhost URL for security
-        if not (frontend_url.startswith("http://localhost:") or 
-                frontend_url.startswith("https://localhost:") or
-                frontend_url == settings.FRONTEND_URL):
+        # Validate that frontend_url is safe for security
+        # Allow localhost URLs, production domain, and exact match with configured FRONTEND_URL
+        allowed_domains = [
+            "http://localhost:",
+            "https://localhost:",
+            "http://127.0.0.1:",
+            "https://127.0.0.1:",
+            "https://soberoctobr.com",
+            "https://www.soberoctobr.com",
+            "https://soberoctobr-frontend",  # DigitalOcean App Platform subdomain pattern
+        ]
+        
+        is_allowed = any(frontend_url.startswith(domain) for domain in allowed_domains)
+        if not is_allowed and frontend_url != settings.FRONTEND_URL:
+            # If URL is not in allowlist, use configured FRONTEND_URL
             frontend_url = settings.FRONTEND_URL
         
         # Redirect to frontend with token
@@ -167,7 +178,10 @@ async def google_callback(
     except HTTPException as e:
         # Log the error and redirect to frontend with error
         print(f"HTTPException during Google OAuth callback: {str(e)}")
-        frontend_url = state if state and state.startswith("http://localhost:") else settings.FRONTEND_URL
+        # Use state if it's a safe URL, otherwise use configured FRONTEND_URL
+        allowed_prefixes = ["http://localhost:", "https://localhost:", "http://127.0.0.1:", 
+                           "https://127.0.0.1:", "https://soberoctobr.com", "https://www.soberoctobr.com"]
+        frontend_url = state if state and any(state.startswith(prefix) for prefix in allowed_prefixes) else settings.FRONTEND_URL
         error_url = f"{frontend_url}/?error=auth_failed&detail=http_exception"
         return RedirectResponse(url=error_url)
     except Exception as e:
@@ -175,6 +189,9 @@ async def google_callback(
         print(f"Error during Google OAuth callback: {str(e)}")
         import traceback
         traceback.print_exc()
-        frontend_url = state if state and state.startswith("http://localhost:") else settings.FRONTEND_URL
+        # Use state if it's a safe URL, otherwise use configured FRONTEND_URL
+        allowed_prefixes = ["http://localhost:", "https://localhost:", "http://127.0.0.1:", 
+                           "https://127.0.0.1:", "https://soberoctobr.com", "https://www.soberoctobr.com"]
+        frontend_url = state if state and any(state.startswith(prefix) for prefix in allowed_prefixes) else settings.FRONTEND_URL
         error_url = f"{frontend_url}/?error=auth_failed&detail=exception"
         return RedirectResponse(url=error_url)

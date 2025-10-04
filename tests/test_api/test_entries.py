@@ -104,7 +104,7 @@ class TestCreateOrUpdateEntry:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["completed"] is True
-        assert data["habit_id"] == test_binary_habit.id
+        assert data["habitId"] == test_binary_habit.id
 
     def test_create_counted_entry_success(
         self, client, test_counted_habit: Habit, auth_headers: dict

@@ -52,6 +52,7 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI application instance
+# Configure to use field aliases (camelCase) in JSON responses
 app = FastAPI(
     title="Sober October API",
     description="Backend API for the Sober October habit tracking application",
@@ -60,6 +61,20 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+# Configure default response model behavior to use aliases
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+
+# Override default response class to use by_alias=True
+class CamelCaseJSONResponse(JSONResponse):
+    """JSON response that uses camelCase field names (aliases)."""
+    def render(self, content) -> bytes:
+        return super().render(
+            jsonable_encoder(content, by_alias=True)
+        )
+
+app.router.default_response_class = CamelCaseJSONResponse
 
 # Configure CORS
 app.add_middleware(

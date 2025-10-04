@@ -5,6 +5,7 @@ Pydantic models for habit template API responses
 
 from typing import Optional
 from pydantic import BaseModel, Field
+from app.schemas.base import base_response_config
 
 
 class HabitTemplateResponse(BaseModel):
@@ -19,6 +20,5 @@ class HabitTemplateResponse(BaseModel):
     icon: str = Field(..., description="Icon/emoji for the template")
     category: str = Field(..., description="Template category")
     
-    class Config:
-        from_attributes = True
+    model_config = base_response_config
 

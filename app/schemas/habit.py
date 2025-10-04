@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List
 from enum import Enum
+from app.schemas.base import base_response_config
 
 
 class HabitType(str, Enum):
@@ -46,8 +47,7 @@ class HabitResponse(HabitBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = base_response_config
 
 
 class HabitBulkCreate(BaseModel):

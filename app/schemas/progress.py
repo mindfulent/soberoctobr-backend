@@ -3,6 +3,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
+from app.schemas.base import base_response_config
 
 
 class DayProgress(BaseModel):
@@ -48,6 +49,5 @@ class ChallengeProgressResponse(BaseModel):
     # Per-habit breakdown
     habit_progress: List[HabitProgress]
     
-    class Config:
-        from_attributes = True
+    model_config = base_response_config
 

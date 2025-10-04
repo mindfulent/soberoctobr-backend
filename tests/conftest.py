@@ -2,7 +2,7 @@
 
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Generator
 
 import pytest
@@ -121,11 +121,13 @@ def auth_headers(auth_token: str) -> dict:
 @pytest.fixture
 def test_challenge(db_session: Session, test_user: User) -> Challenge:
     """Create a test challenge."""
+    # Use dynamic dates relative to today to avoid test failures
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     challenge = Challenge(
         id=str(uuid.uuid4()),
         user_id=test_user.id,
-        start_date=datetime(2024, 10, 1),
-        end_date=datetime(2024, 10, 31),
+        start_date=today - timedelta(days=15),  # Started 15 days ago
+        end_date=today + timedelta(days=15),    # Ends 15 days from now
         status=ChallengeStatus.ACTIVE,
     )
     db_session.add(challenge)

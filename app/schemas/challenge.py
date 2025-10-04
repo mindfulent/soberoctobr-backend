@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import List, Optional
+from app.schemas.base import base_response_config
 from app.schemas.habit import HabitResponse
 
 
@@ -29,7 +30,6 @@ class ChallengeResponse(ChallengeBase):
     status: str
     created_at: datetime
     updated_at: datetime
-    habits: List[HabitResponse] = []
+    habits: List["HabitResponse"] = []
 
-    class Config:
-        from_attributes = True
+    model_config = base_response_config

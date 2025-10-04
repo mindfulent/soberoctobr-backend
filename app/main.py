@@ -25,6 +25,9 @@ async def lifespan(app: FastAPI):
     """
     Lifecycle events for the FastAPI application.
     Handles startup and shutdown events.
+    
+    Note: This should complete quickly to allow the app to start serving
+    health check requests. Heavy operations should be deferred or async.
     """
     # Startup
     logger.info("=" * 50)
@@ -38,18 +41,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"API Base URL: {settings.API_BASE_URL}")
     logger.info("=" * 50)
     
-    # Test database connection (non-blocking)
-    try:
-        from app.core.database import engine
-        from sqlalchemy import text
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        logger.info("✓ Database connection verified")
-    except Exception as e:
-        logger.warning(f"⚠ Database connection issue during startup: {e}")
-        logger.warning("Application will start but database operations may fail")
-    
-    logger.info("✓ Application startup complete")
+    # Don't test database during startup - it can slow down the health checks
+    # The database connection will be tested on first use
+    logger.info("✓ Application startup complete - ready to serve requests")
     
     yield
     
@@ -91,10 +85,36 @@ async def root():
 @app.get("/health")
 async def health_check():
     """
-    Health check endpoint.
+    Health check endpoint - lightweight version for readiness probe.
+    
+    This endpoint is called frequently by DigitalOcean's health checks.
+    It should respond quickly without heavy operations like database queries.
 
     Returns:
         dict: Application health status
+    """
+    import os
+    
+    # Return immediately with basic health status
+    # Do NOT check database here - it's too slow for health checks
+    return {
+        "status": "healthy",
+        "version": "0.1.0",
+        "environment": settings.ENVIRONMENT,
+        "port": os.getenv("PORT", "8080")
+    }
+
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """
+    Detailed health check endpoint with database connectivity test.
+    
+    This endpoint is more comprehensive but slower. Use /health for
+    quick readiness probes and this endpoint for detailed diagnostics.
+
+    Returns:
+        dict: Detailed application health status including database
     """
     import os
     

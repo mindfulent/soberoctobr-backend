@@ -15,8 +15,9 @@ if settings.DATABASE_URL.startswith("sqlite"):
     )
 else:
     # Use smaller pool for production (especially on small instances)
-    pool_size = 2 if settings.ENVIRONMENT == "production" else 10
-    max_overflow = 3 if settings.ENVIRONMENT == "production" else 20
+    # Keep it minimal to avoid connection overhead on startup
+    pool_size = 1 if settings.ENVIRONMENT == "production" else 5
+    max_overflow = 2 if settings.ENVIRONMENT == "production" else 10
     
     engine = create_engine(
         settings.DATABASE_URL,
@@ -26,7 +27,7 @@ else:
         max_overflow=max_overflow,
         pool_recycle=300,  # Recycle connections every 5 minutes
         connect_args={
-            "connect_timeout": 10,
+            "connect_timeout": 5,  # Faster timeout for production
             "options": "-c statement_timeout=30000"  # 30 second statement timeout
         }
     )

@@ -720,17 +720,27 @@ class TestNormalizeDateFunction:
         self, client, test_challenge: Challenge, auth_headers: dict, db_session: Session
     ):
         """Test progress calculation with habit that has a template_id."""
-        # Create a habit with a template_id
-        habit = Habit(
+        # Create a habit with a valid template_id
+        habit_with_template = Habit(
             id="habit-1",
             challenge_id=test_challenge.id,
-            name="Templated Habit",
+            name="Vitamin D",
             type="binary",
             is_active=True,
             order=1,
-            template_id="some-template-id"
+            template_id="vitamin_d"  # Valid template ID from HABIT_TEMPLATES
         )
-        db_session.add(habit)
+        # Create a habit with an invalid template_id
+        habit_no_template = Habit(
+            id="habit-2",
+            challenge_id=test_challenge.id,
+            name="Custom Habit",
+            type="binary",
+            is_active=True,
+            order=2,
+            template_id="invalid-template-id"  # Invalid template ID
+        )
+        db_session.add_all([habit_with_template, habit_no_template])
         db_session.commit()
 
         response = client.get(
@@ -739,9 +749,16 @@ class TestNormalizeDateFunction:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert len(data["habit_progress"]) == 1
-        # Icon should be None since we're not actually loading templates
-        assert data["habit_progress"][0]["icon"] is None
+        assert len(data["habitProgress"]) == 2
+
+        # Find each habit in the progress (using snake_case for nested fields)
+        habit1_progress = next(h for h in data["habitProgress"] if h["habit_id"] == "habit-1")
+        habit2_progress = next(h for h in data["habitProgress"] if h["habit_id"] == "habit-2")
+
+        # Habit with valid template should have icon
+        assert habit1_progress["icon"] == "☀️"
+        # Habit with invalid template should have None icon
+        assert habit2_progress["icon"] is None
 
     def test_challenge_with_timezone_aware_dates(
         self, client, test_user: User, auth_headers: dict, db_session: Session

@@ -11,6 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import settings
 from app.api import auth, users, challenges, habits, entries, habit_templates
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +21,32 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Initialize Sentry for error tracking and performance monitoring
+# Only in production or if explicitly enabled
+is_production = settings.ENVIRONMENT == "production"
+
+if settings.SENTRY_DSN and (is_production or settings.SENTRY_ENABLED):
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+
+        # Performance Monitoring
+        integrations=[
+            FastApiIntegration(),
+            StarletteIntegration(),
+        ],
+
+        # Performance monitoring - sample 100% in production initially
+        traces_sample_rate=1.0 if is_production else 0.0,
+
+        # Don't send events in development unless explicitly enabled
+        before_send=lambda event, hint: event if (is_production or settings.SENTRY_ENABLED) else None,
+    )
+
+    logger.info("✓ Sentry initialized for error tracking")
+else:
+    logger.info("Sentry disabled (no DSN or not enabled)")
 
 
 @asynccontextmanager

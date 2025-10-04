@@ -127,6 +127,16 @@ class Settings(BaseSettings):
         default="INFO",
         description="Logging level"
     )
+
+    # Error Tracking
+    SENTRY_DSN: str = Field(
+        default="",
+        description="Sentry DSN for error tracking and performance monitoring"
+    )
+    SENTRY_ENABLED: bool = Field(
+        default=False,
+        description="Enable Sentry error tracking"
+    )
     
     @field_validator('CORS_ORIGINS', mode='before')
     @classmethod

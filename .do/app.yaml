@@ -16,7 +16,7 @@ services:
     envs:
       - key: DATABASE_URL
         scope: RUN_AND_BUILD_TIME
-        value: ${soberoctobr-db.DATABASE_URL}
+        type: SECRET
       - key: SECRET_KEY
         scope: RUN_TIME
         type: SECRET

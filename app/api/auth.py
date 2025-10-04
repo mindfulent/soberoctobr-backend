@@ -98,6 +98,7 @@ async def logout():
 @router.get("/google/callback")
 async def google_callback(
     code: str,
+    state: str = "",
     db: Session = Depends(get_db)
 ):
     """
@@ -109,6 +110,7 @@ async def google_callback(
     
     Args:
         code: Authorization code from Google OAuth
+        state: State parameter containing the frontend URL (optional)
         db: Database session
         
     Returns:
@@ -120,7 +122,8 @@ async def google_callback(
     try:
         # The redirect_uri must match what was sent to Google OAuth
         # This is the backend callback URL (where we are now)
-        redirect_uri = "http://localhost:8000/api/auth/google/callback"
+        # Use configured redirect URI or construct from API base URL
+        redirect_uri = f"{settings.API_BASE_URL}/api/auth/google/callback"
         
         # Exchange authorization code for access token
         token_data = await exchange_code_for_token(code, redirect_uri)
@@ -147,20 +150,31 @@ async def google_callback(
         # Create JWT token
         access_token = create_access_token(data={"sub": user.id})
         
+        # Use state parameter as frontend URL if provided, otherwise use configured FRONTEND_URL
+        frontend_url = state if state else settings.FRONTEND_URL
+        
+        # Validate that frontend_url is a localhost URL for security
+        if not (frontend_url.startswith("http://localhost:") or 
+                frontend_url.startswith("https://localhost:") or
+                frontend_url == settings.FRONTEND_URL):
+            frontend_url = settings.FRONTEND_URL
+        
         # Redirect to frontend with token
         # Frontend will extract token from URL and store it
-        frontend_callback_url = f"{settings.FRONTEND_URL}/auth/callback?token={access_token}"
+        frontend_callback_url = f"{frontend_url}/auth/callback?token={access_token}"
         return RedirectResponse(url=frontend_callback_url)
         
     except HTTPException as e:
         # Log the error and redirect to frontend with error
         print(f"HTTPException during Google OAuth callback: {str(e)}")
-        error_url = f"{settings.FRONTEND_URL}/?error=auth_failed&detail=http_exception"
+        frontend_url = state if state and state.startswith("http://localhost:") else settings.FRONTEND_URL
+        error_url = f"{frontend_url}/?error=auth_failed&detail=http_exception"
         return RedirectResponse(url=error_url)
     except Exception as e:
         # Log the error and redirect with error message
         print(f"Error during Google OAuth callback: {str(e)}")
         import traceback
         traceback.print_exc()
-        error_url = f"{settings.FRONTEND_URL}/?error=auth_failed&detail=exception"
+        frontend_url = state if state and state.startswith("http://localhost:") else settings.FRONTEND_URL
+        error_url = f"{frontend_url}/?error=auth_failed&detail=exception"
         return RedirectResponse(url=error_url)

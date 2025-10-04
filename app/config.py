@@ -63,6 +63,12 @@ class Settings(BaseSettings):
         description="OAuth redirect URI"
     )
 
+    # API
+    API_BASE_URL: str = Field(
+        default="http://localhost:8000",
+        description="Backend API base URL"
+    )
+
     # Frontend
     FRONTEND_URL: str = Field(
         default="http://localhost:5173",
@@ -71,7 +77,16 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173"],
+        default=[
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:8080",
+            "http://localhost:8082",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:8080",
+            "http://127.0.0.1:8082"
+        ],
         description="List of allowed CORS origins"
     )
 

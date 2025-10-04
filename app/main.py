@@ -85,6 +85,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add HTTP logging middleware for debugging integration issues
+import time
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class HTTPLoggingMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to log all HTTP requests and responses.
+    Helps debug frontend-backend integration issues.
+    """
+    async def dispatch(self, request: Request, call_next):
+        # Skip logging for health check endpoints (too noisy)
+        if request.url.path in ["/health", "/ping"]:
+            return await call_next(request)
+
+        # Log request
+        start_time = time.time()
+        request_id = str(time.time())  # Simple request ID
+
+        logger.info(f"→ [{request_id}] {request.method} {request.url.path}")
+        if request.query_params:
+            logger.info(f"  Query: {dict(request.query_params)}")
+
+        # Call the endpoint
+        try:
+            response = await call_next(request)
+        except Exception as e:
+            logger.error(f"✗ [{request_id}] Exception: {str(e)}")
+            raise
+
+        # Log response
+        duration = time.time() - start_time
+        duration_ms = int(duration * 1000)
+
+        if response.status_code < 400:
+            logger.info(f"← [{request_id}] {response.status_code} ({duration_ms}ms)")
+        else:
+            logger.warning(f"← [{request_id}] {response.status_code} ({duration_ms}ms)")
+
+        return response
+
+# Add the logging middleware
+if settings.DEBUG:
+    logger.info("Debug mode enabled - adding HTTP logging middleware")
+    app.add_middleware(HTTPLoggingMiddleware)
+
 
 @app.get("/")
 async def root():

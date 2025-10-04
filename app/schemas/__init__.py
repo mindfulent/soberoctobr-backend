@@ -5,6 +5,7 @@ from app.schemas.challenge import ChallengeCreate, ChallengeResponse, ChallengeU
 from app.schemas.habit import HabitCreate, HabitResponse, HabitUpdate
 from app.schemas.daily_entry import DailyEntryCreate, DailyEntryResponse, DailyEntryUpdate
 from app.schemas.auth import Token, GoogleAuthRequest
+from app.schemas.habit_template import HabitTemplateResponse
 
 __all__ = [
     "UserResponse",
@@ -20,4 +21,5 @@ __all__ = [
     "DailyEntryUpdate",
     "Token",
     "GoogleAuthRequest",
+    "HabitTemplateResponse",
 ]

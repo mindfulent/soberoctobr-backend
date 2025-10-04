@@ -11,7 +11,7 @@ from enum import Enum
 
 class HabitCategory(str, Enum):
     """Habit template categories."""
-    SOBER_OCTOBER = "sober_october"
+    SOBER_OCTOBER_ESSENTIALS = "sober_october_essentials"
     PHYSICAL_HEALTH = "physical_health"
     MENTAL_WELLNESS = "mental_wellness"
     DAILY_ROUTINES = "daily_routines"
@@ -75,7 +75,7 @@ HABIT_TEMPLATES = [
         description="Stay alcohol-free for the entire challenge",
         type="binary",
         preferred_time="all_day",
-        category=HabitCategory.SOBER_OCTOBER,
+        category=HabitCategory.SOBER_OCTOBER_ESSENTIALS,
         icon="🚫🍺"
     ),
     HabitTemplate(
@@ -84,7 +84,7 @@ HABIT_TEMPLATES = [
         description="Avoid added sugars and sweeteners",
         type="binary",
         preferred_time="all_day",
-        category=HabitCategory.SOBER_OCTOBER,
+        category=HabitCategory.SOBER_OCTOBER_ESSENTIALS,
         icon="🚫🍰"
     ),
     HabitTemplate(
@@ -93,7 +93,7 @@ HABIT_TEMPLATES = [
         description="Cut off caffeine intake after 2pm",
         type="binary",
         preferred_time="afternoon",
-        category=HabitCategory.SOBER_OCTOBER,
+        category=HabitCategory.SOBER_OCTOBER_ESSENTIALS,
         icon="☕"
     ),
     HabitTemplate(
@@ -102,7 +102,7 @@ HABIT_TEMPLATES = [
         description="Stay off social media platforms",
         type="binary",
         preferred_time="all_day",
-        category=HabitCategory.SOBER_OCTOBER,
+        category=HabitCategory.SOBER_OCTOBER_ESSENTIALS,
         icon="📱"
     ),
     

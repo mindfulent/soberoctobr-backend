@@ -19,6 +19,7 @@ class HabitBase(BaseModel):
     type: HabitType
     target_count: Optional[int] = Field(None, ge=1)
     preferred_time: Optional[str] = Field(None, max_length=50)
+    icon: Optional[str] = Field(None, max_length=10)
 
 
 class HabitCreate(HabitBase):
@@ -33,6 +34,7 @@ class HabitUpdate(BaseModel):
     type: Optional[HabitType] = None
     target_count: Optional[int] = Field(None, ge=1)
     preferred_time: Optional[str] = Field(None, max_length=50)
+    icon: Optional[str] = Field(None, max_length=10)
     order: Optional[int] = Field(None, ge=0)
     is_active: Optional[bool] = None
 

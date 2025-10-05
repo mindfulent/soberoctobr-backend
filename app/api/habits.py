@@ -111,6 +111,7 @@ async def create_habit(
         type=habit_data.type,
         target_count=habit_data.target_count,
         preferred_time=habit_data.preferred_time,
+        icon=habit_data.icon,
         order=habit_data.order or habit_count,
         template_id=habit_data.template_id
     )
@@ -197,6 +198,8 @@ async def update_habit(
         habit.target_count = habit_update.target_count
     if habit_update.preferred_time is not None:
         habit.preferred_time = habit_update.preferred_time
+    if habit_update.icon is not None:
+        habit.icon = habit_update.icon
     if habit_update.order is not None:
         habit.order = habit_update.order
     if habit_update.is_active is not None:
@@ -298,6 +301,7 @@ async def create_habits_bulk(
             type=habit_data.type,
             target_count=habit_data.target_count,
             preferred_time=habit_data.preferred_time,
+            icon=habit_data.icon,
             order=habit_data.order if habit_data.order is not None else (current_habit_count + idx),
             template_id=habit_data.template_id
         )

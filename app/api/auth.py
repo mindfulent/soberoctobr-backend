@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.security import create_access_token, get_current_user
+from app.core.security import create_access_token, get_current_user, is_admin
 from app.core.oauth import exchange_code_for_token, get_google_user_info
 from app.models.user import User
 from app.schemas.auth import Token, GoogleAuthRequest
@@ -58,8 +58,14 @@ async def google_auth(
         db.commit()
         db.refresh(user)
 
-    # Create JWT token
-    access_token = create_access_token(data={"sub": user.id})
+    # Create JWT token with user info
+    access_token = create_access_token(data={
+        "sub": user.id,
+        "email": user.email,
+        "name": user.name,
+        "picture": user.picture,
+        "is_admin": is_admin(user.email)
+    })
 
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -147,9 +153,15 @@ async def google_callback(
             db.commit()
             db.refresh(user)
         
-        # Create JWT token
-        access_token = create_access_token(data={"sub": user.id})
-        
+        # Create JWT token with user info
+        access_token = create_access_token(data={
+            "sub": user.id,
+            "email": user.email,
+            "name": user.name,
+            "picture": user.picture,
+            "is_admin": is_admin(user.email)
+        })
+
         # Use state parameter as frontend URL if provided, otherwise use configured FRONTEND_URL
         frontend_url = state if state else settings.FRONTEND_URL
         

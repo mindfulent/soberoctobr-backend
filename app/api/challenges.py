@@ -259,18 +259,21 @@ async def get_challenge_progress(
     
     days_elapsed = max(0, (today - start_date).days)
     current_day = min(days_elapsed + 1, 30)
-    total_days = (end_date - start_date).days + 1
+    total_days = 30  # Fixed 30-day challenge
     
     # Get all entries for this challenge within the relevant date range
-    all_entries = db.query(DailyEntry).filter(
-        DailyEntry.habit_id.in_(habit_ids),
+    # Only include entries from currently active habits
+    all_entries = db.query(DailyEntry).join(Habit).filter(
+        Habit.challenge_id == challenge_id,
+        Habit.is_active == True,
         DailyEntry.date >= start_date,
         DailyEntry.date <= today
     ).all()
     
     # Calculate total habits completed and total possible habits
     # Account for when each habit was created
-    total_habits_completed = sum(1 for entry in all_entries if entry.completed)
+    # Only count entries from when each habit was created to prevent >100%
+    total_habits_completed = 0
     total_possible_habits = 0
 
     for habit in habits:
@@ -280,8 +283,17 @@ async def get_challenge_progress(
         habit_days_active = min((today - habit_start).days + 1, current_day)
         total_possible_habits += max(0, habit_days_active)
 
+        # Only count entries on or after habit creation date
+        habit_completed = sum(
+            1 for entry in all_entries
+            if entry.habit_id == habit.id
+            and entry.completed
+            and normalize_date(entry.date) >= habit_created
+        )
+        total_habits_completed += habit_completed
+
     overall_completion_percentage = (
-        round((total_habits_completed / total_possible_habits) * 100)
+        min(100, round((total_habits_completed / total_possible_habits) * 100))
         if total_possible_habits > 0 else 0
     )
     
@@ -360,16 +372,23 @@ async def get_challenge_progress(
     # Calculate per-habit progress
     habit_progress = []
     for habit in habits:
-        habit_entries = [e for e in all_entries if e.habit_id == habit.id]
+        # Only count entries on or after habit creation date to prevent >100%
+        habit_created = normalize_date(habit.created_at)
+        habit_entries = [
+            e for e in all_entries
+            if e.habit_id == habit.id and normalize_date(e.date) >= habit_created
+        ]
         completed_count = sum(1 for e in habit_entries if e.completed)
 
         # Calculate days this habit has been active
-        habit_created = normalize_date(habit.created_at)
         habit_start = max(habit_created, start_date)
         habit_days_active = min((today - habit_start).days + 1, current_day)
         habit_total_days = max(0, habit_days_active)
 
-        completion_percentage = round((completed_count / habit_total_days) * 100) if habit_total_days > 0 else 0
+        completion_percentage = (
+            min(100, round((completed_count / habit_total_days) * 100))
+            if habit_total_days > 0 else 0
+        )
 
         # Get icon from habit template if available
         icon = None

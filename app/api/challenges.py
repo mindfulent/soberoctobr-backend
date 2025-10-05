@@ -319,9 +319,13 @@ async def get_challenge_progress(
     # Check from start date to today
     check_date = start_date
     while check_date <= today:
-        day_entries = entries_by_date.get(check_date, [])
-        completed_count = sum(1 for e in day_entries if e.completed)
         active_habits = get_active_habits_for_date(check_date)
+        active_habit_ids = {h.id for h in active_habits}
+
+        # Only count entries from habits that existed on this date
+        day_entries = entries_by_date.get(check_date, [])
+        day_entries_valid = [e for e in day_entries if e.habit_id in active_habit_ids]
+        completed_count = sum(1 for e in day_entries_valid if e.completed)
 
         if len(active_habits) > 0 and completed_count == len(active_habits):
             # Perfect day (all active habits completed)
@@ -336,9 +340,13 @@ async def get_challenge_progress(
     # We start from yesterday because today might still be in progress
     check_date = today - timedelta(days=1)
     while check_date >= start_date:
-        day_entries = entries_by_date.get(check_date, [])
-        completed_count = sum(1 for e in day_entries if e.completed)
         active_habits = get_active_habits_for_date(check_date)
+        active_habit_ids = {h.id for h in active_habits}
+
+        # Only count entries from habits that existed on this date
+        day_entries = entries_by_date.get(check_date, [])
+        day_entries_valid = [e for e in day_entries if e.habit_id in active_habit_ids]
+        completed_count = sum(1 for e in day_entries_valid if e.completed)
 
         if len(active_habits) > 0 and completed_count == len(active_habits):
             current_streak += 1
@@ -354,9 +362,14 @@ async def get_challenge_progress(
         if check_date < start_date:
             continue
 
-        day_entries = entries_by_date.get(check_date, [])
-        completed_count = sum(1 for e in day_entries if e.completed)
+        # Get habits that existed on this date
         active_habits = get_active_habits_for_date(check_date)
+        active_habit_ids = {h.id for h in active_habits}
+
+        # Only count entries from habits that existed on this date
+        day_entries = entries_by_date.get(check_date, [])
+        day_entries_valid = [e for e in day_entries if e.habit_id in active_habit_ids]
+        completed_count = sum(1 for e in day_entries_valid if e.completed)
         total_count = len(active_habits)
         is_perfect = total_count > 0 and completed_count == total_count
         completion_percentage = round((completed_count / total_count) * 100) if total_count > 0 else 0

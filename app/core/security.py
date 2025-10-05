@@ -53,6 +53,19 @@ def decode_access_token(token: str) -> Optional[dict]:
         return None
 
 
+def is_admin(email: str) -> bool:
+    """
+    Check if a user email is an admin.
+
+    Args:
+        email: User's email address
+
+    Returns:
+        bool: True if user is admin, False otherwise
+    """
+    return email == "jon@papp.as"
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
@@ -91,3 +104,26 @@ async def get_current_user(
         raise credentials_exception
 
     return user
+
+
+async def get_current_admin_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Get the current authenticated admin user.
+
+    Args:
+        current_user: Current authenticated user
+
+    Returns:
+        User: Current authenticated admin user
+
+    Raises:
+        HTTPException: If user is not an admin
+    """
+    if not is_admin(current_user.email):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user

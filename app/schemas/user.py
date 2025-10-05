@@ -1,9 +1,10 @@
 """User Pydantic schemas."""
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, computed_field
 from datetime import datetime
 from typing import Optional
 from app.schemas.base import base_response_config
+from app.core.security import is_admin
 
 
 class UserBase(BaseModel):
@@ -24,5 +25,11 @@ class UserResponse(UserBase):
     picture: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def is_admin(self) -> bool:
+        """Check if user is an admin based on email."""
+        return is_admin(self.email)
 
     model_config = base_response_config

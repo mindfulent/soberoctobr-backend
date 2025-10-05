@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.security import get_current_admin_user
 from app.models.user import User
 from app.models.habit import Habit
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 router = APIRouter()
@@ -16,20 +16,21 @@ router = APIRouter()
 
 class AdminUserInfo(BaseModel):
     """Admin view of user information."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     id: str
     name: str
     email: str
     picture: str | None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
+    created_at: datetime = Field(..., serialization_alias="createdAt")
 
 
 class AdminStatsResponse(BaseModel):
     """Admin statistics response."""
-    total_users: int
-    total_habits: int
+    model_config = ConfigDict(populate_by_name=True)
+
+    total_users: int = Field(..., serialization_alias="totalUsers")
+    total_habits: int = Field(..., serialization_alias="totalHabits")
     users: List[AdminUserInfo]
 
 

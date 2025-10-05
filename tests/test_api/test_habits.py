@@ -312,6 +312,20 @@ class TestUpdateHabit:
         data = response.json()
         assert data["preferredTime"] == "afternoon"
 
+    def test_update_habit_icon(
+        self, client, test_binary_habit: Habit, auth_headers: dict
+    ):
+        """Test updating habit icon."""
+        response = client.put(
+            f"/api/v1/habits/{test_binary_habit.id}",
+            headers=auth_headers,
+            json={"icon": "🎯"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["icon"] == "🎯"
+
     def test_update_habit_not_found(self, client, auth_headers: dict):
         """Test updating non-existent habit."""
         response = client.put(

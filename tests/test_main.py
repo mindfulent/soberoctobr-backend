@@ -104,3 +104,5 @@ class TestMainExecution:
                 except SystemExit:
                     # It's okay if the script tries to exit
                     pass
+
+
